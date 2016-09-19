@@ -127,12 +127,14 @@ def start(bot, update, args):
 		if args[0] == 'flush':
 			jobhourly(None, None)
 			bot.sendMessage(chat_id, text="Экстренная запись на диск выполнена")
+			return
 		elif args[0] == 'spin':
 			jobdaily(None, None)
 			bot.sendMessage(chat_id, text="Экстренная раздача кармы по топу сообщений выполнена")
+			return
 		elif args[0] == 'dbgvar':
 			bot.sendMessage(update.message.chat_id, text="{}".format(eval(args[1])))
-		return
+			return
 	if chat_id == update.message.from_user.id:
 		bot.sendMessage(chat_id, text="Готово, теперь вы можете получать уведомления.")
 		return
