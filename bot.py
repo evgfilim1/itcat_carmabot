@@ -43,6 +43,7 @@ features_text = """Фичи за карму:
 defaultAdminCarma = 2500
 defaultUserCarma = -20
 addViaThanks = 1
+transferLimit = 32768
 
 filters = [Filters.audio,
 	Filters.contact,
@@ -134,10 +135,14 @@ def about(bot, update):
 
 def mystat(bot, update, args):
 	msg = update.message
+	if bool(msg.reply_to_message):
+		uid = msg.reply_to_message.from_user.id
+	else:
+		uid = msg.from_user.id
 	text = """Статистика пользователя {u}:
 Карма: {c}
-Сообщений за день: {m}""".format(u=getuname(msg.from_user), c=carma[msg.chat_id].get(msg.from_user.id, defaultUserCarma), 
-	m=msgcount[msg.chat_id].get(msg.from_user.id, 0))
+Сообщений за день: {m}""".format(u=getuname(msg.from_user), c=carma[msg.chat_id].get(uid, defaultUserCarma), 
+	m=msgcount[msg.chat_id].get(uid, 0))
 
 	bot.sendMessage(msg.chat_id, text=text)
 
@@ -159,6 +164,9 @@ def pay(bot, update, args):
 		return
 	else:
 		toid = update.message.reply_to_message.from_user.id
+		if arg < 0:
+			arg = -arg
+		arg = int(arg % transferLimit)
 	
 	carma[chat_id][fromid] = carma[chat_id].get(fromid, defaultUserCarma) - arg
 	if toid == botid:
@@ -174,8 +182,11 @@ def statusupdate(bot, update):
 		start(bot, update)
 
 def myid(bot, update):
-	bot.sendMessage(update.message.chat_id, text="UID: {0}, GID: {1}".format(update.message.from_user.id, 
-		update.message.chat_id))
+	if bool(update.message.reply_to_message):
+		uid = update.message.reply_to_message.from_user.id
+	else:
+		uid = update.message.from_user.id
+	bot.sendMessage(update.message.chat_id, text="UID: {0}, GID: {1}".format(uid, update.message.chat_id))
 
 updater = Updater(TOKEN)
 
