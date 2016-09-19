@@ -2,7 +2,8 @@
 from telegram import *
 from telegram.ext import *
 from bottoken import TOKEN, creatorid
-import logging, time, math, os.path, pickle
+from os import path
+import logging, time, math, pickle
 #import json
 
 TIME_FORMAT = "%d %b, %H:%M:%S"
@@ -174,8 +175,9 @@ def mystat(bot, update):
 	bot.sendMessage(msg.chat_id, text=text)
 
 def topstat(bot, update):
-	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 	chat_id = update.message.chat_id
+	chat = msgcount[chat_id]
+	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 	msg = "Статистика пользователей: \n"
 	for i in sorttop:
 		try:
@@ -270,7 +272,7 @@ dp.add_handler(MessageHandler([], onStuff))
 
 dp.add_error_handler(error)
 
-if os.path.exists('msg.pkl'):
+if path.exists('msg.pkl'):
 	with open('msg.pkl', 'rb') as f:
 		msgcount = pickle.load(f)
 	with open('carma.pkl', 'rb') as f:
