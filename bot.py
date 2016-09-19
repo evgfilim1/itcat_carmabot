@@ -206,6 +206,9 @@ def myid(bot, update):
 		uid = update.message.from_user.id
 	bot.sendMessage(update.message.chat_id, text="UID: {0}, GID: {1}".format(uid, update.message.chat_id))
 
+def rtl(bot, update):
+	bot.sendMessage(update.message.chat_id, text='LTR\u202ERTL')
+
 updater = Updater(TOKEN)
 
 jobs = updater.job_queue
@@ -227,7 +230,7 @@ dp.add_handler(MessageHandler([], onStuff))
 
 dp.add_error_handler(error)
 
-if os.path.exists('data/msg.pkl'):
+if os.path.exists('msg.pkl'):
 	with open('msg.pkl', 'rb') as f:
 		msgcount = pickle.load(f)
 	with open('carma.pkl', 'rb') as f:
