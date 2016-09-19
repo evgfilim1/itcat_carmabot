@@ -91,7 +91,7 @@ def onStuff(bot, update):
 		msgcount[gid][uid] = msgcount[gid].get(uid, 0) + 1
 	if not uid in carma[gid]:
 		carma[gid][uid] = defaultUserCarma
-	unames.update({uid, getuname(update.message.from_user)})
+	unames.update({uid: getuname(update.message.from_user)})
 
 
 def jobdaily(bot, job):
@@ -179,7 +179,7 @@ def topstat(bot, update):
 	chat = msgcount[chat_id]
 	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 	msg = "Статистика пользователей: \n"
-	for i in sorttop:
+	for i in range(10):
 		try:
 			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
 		except IndexError:
