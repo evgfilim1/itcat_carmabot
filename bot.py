@@ -16,7 +16,7 @@ help_text = """Привет. Я бот, который считает карму
 -Если тебе нужен топ пользователей, напиши /topstat
 Для перевода кармы используй /pay
 -А для запроса о переводе кармы — /ask
--Если вы хотите поблагодарить человека, используйте /thanks
+Если вы хотите поблагодарить человека, используйте /thanks
 -Пожаловаться — /complain
 -Если тебе надо подписаться на изменения своей кармы, напиши /carmasubscr
 -Для отписки — /carmaunsubscr
@@ -38,7 +38,9 @@ features_text = """Фичи за карму:
 Досрочный разбан - 50 - /feature 0
 Отправка сообщения во время бана - 5 - /feature 1
 Передать всем привет - 1 - /feature 2
-Получить подарок на праздник - (-2) - /feature 3"""
+Получить подарок на праздник - (-2) - /feature 3
+Устроить раздачу - 100 - /feature 4
+Уметь отнимать карму - 1000 - /feature 5"""
 
 defaultAdminCarma = 2500
 defaultUserCarma = -20
@@ -66,6 +68,12 @@ def error(bot, update, error):
 	logging.warning('Update "{0}" caused error "{1}"'.format(update, error))
 	bot.sendMessage(update.message.chat_id, text="Произошла ошибка при обработке этого сообщения", 
 		reply_to_message=update.message.message_id)
+
+def payment(chat_id, from_id, to_id, amount):
+	global carma
+	if from_id != 0:
+		carma[chat_id][from_id] = carma[chat_id].get(from_id, defaultUserCarma) - amount
+	carma[chat_id][to_id] = carma[chat_id].get(to_id, defaultUserCarma) + amount
 
 def getuname(user):
 	if bool(user.username):
@@ -133,15 +141,17 @@ def Help(bot, update):
 def about(bot, update):
 	bot.sendMessage(update.message.chat_id, text=about_text)
 
-def mystat(bot, update, args):
+def mystat(bot, update):
 	msg = update.message
 	if bool(msg.reply_to_message):
-		uid = msg.reply_to_message.from_user.id
+		uu = msg.reply_to_message.from_user
+		uid = uu.id
 	else:
-		uid = msg.from_user.id
+		uu = msg.from_user
+		uid = uu.id
 	text = """Статистика пользователя {u}:
 Карма: {c}
-Сообщений за день: {m}""".format(u=getuname(msg.from_user), c=carma[msg.chat_id].get(uid, defaultUserCarma), 
+Сообщений за день: {m}""".format(u=getuname(uu), c=carma[msg.chat_id].get(uid, defaultUserCarma), 
 	m=msgcount[msg.chat_id].get(uid, 0))
 
 	bot.sendMessage(msg.chat_id, text=text)
@@ -168,12 +178,20 @@ def pay(bot, update, args):
 			arg = -arg
 		arg = int(arg % transferLimit)
 	
-	carma[chat_id][fromid] = carma[chat_id].get(fromid, defaultUserCarma) - arg
 	if toid == botid:
 		toid = creatorid
-	carma[chat_id][toid] = carma[chat_id].get(toid, defaultUserCarma) + arg
+
+	payment(chat_id, fromid, toid, arg)
 	bot.sendMessage(chat_id, text="{} кармы переведено.".format(arg))
 		
+def thnx(bot, update):
+	chat_id = update.message.chat_id
+	if not bool(update.message.reply_to_message):
+		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks")
+		return
+	u = update.message.reply_to_message.from_user
+	payment(chat_id, 0, u.id, 1)
+	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)))
 
 def statusupdate(bot, update):
 	if not bool(update.message.new_chat_member):
@@ -201,8 +219,9 @@ dp.add_handler(CommandHandler('start', start, pass_args=True))
 dp.add_handler(CommandHandler('help', Help))
 dp.add_handler(CommandHandler('about', about))
 dp.add_handler(CommandHandler('myid', myid))
-dp.add_handler(CommandHandler('mystat', mystat, pass_args=True))
+dp.add_handler(CommandHandler('mystat', mystat))
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
+dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
 dp.add_handler(MessageHandler([], onStuff))
 
