@@ -12,19 +12,18 @@ logging.basicConfig(format = '%(levelname)-8s [%(asctime)s] %(message)s', level 
 botid = int(TOKEN[:TOKEN.index(':')])
 
 help_text = """Привет. Я бот, который считает карму в чате :)
-Если ты хочешь узнать свою статистику, напиши /mystat
+Если ты хочешь узнать свою статистику, напиши /mystat или /st
 -Если тебе нужен топ пользователей, напиши /topstat
 Для перевода кармы используй /pay
 -А для запроса о переводе кармы — /ask
-Если вы хотите поблагодарить человека, используйте /thanks
--Пожаловаться — /complain
+Если вы хотите поблагодарить человека, используйте /thanks или /tx
 -Если тебе надо подписаться на изменения своей кармы, напиши /carmasubscr
 -Для отписки — /carmaunsubscr
 
--Каждый день самым активным пользователям чата — призы!
--За 1 место — +10 к карме
--За 2 место — +5 к карме
--За 3 место — +2 к карме
+Каждый день самым активным пользователям чата — призы!
+За 1 место — +10 к карме
+За 2 место — +5 к карме
+За 3 место — +2 к карме
 _____
 Инфо о боте —> /about
 Строки, начинающиеся с - обозначают ещё не реализованную возможность"""
@@ -45,7 +44,7 @@ features_text = """Фичи за карму:
 defaultAdminCarma = 2500
 defaultUserCarma = -20
 addViaThanks = 1
-transferLimit = 32768
+transferLimit = 256
 
 filters = [Filters.audio,
 	Filters.contact,
@@ -63,6 +62,8 @@ filters = [Filters.audio,
 carma = {}
 msgcount = {}
 unames = {}
+#bank = {}
+#subscribed = []
 
 def error(bot, update, error):
 	logging.warning('Update "{0}" caused error "{1}"'.format(update, error))
@@ -116,6 +117,15 @@ def jobhourly(bot, job):
 def start(bot, update, args):
 	global carma, msgcount
 	chat_id = update.message.chat_id
+	if len(args) == 1 and update.message.from_user.id == creatorid:
+		if args[0] == 'flush':
+			jobhourly(None, None)
+			bot.sendMessage(chat_id, text="Экстренная запись на диск выполнена")
+			return
+		elif args[0] == 'spin':
+			jobdaily(None, None)
+			bot.sendMessage(chat_id, text="Экстренная раздача кармы по топу сообщений выполнена")
+			return
 	if chat_id == update.message.from_user.id:
 		bot.sendMessage(chat_id, text="Готово, теперь вы можете получать уведомления.")
 		return
@@ -127,6 +137,7 @@ def start(bot, update, args):
 			return
 	carma[chat_id] = {}
 	msgcount[chat_id] = {}
+	#bank[chat_id] = 0
 	admins = bot.getChatAdministrators(chat_id)
 	for admin in admins:
 		carma[chat_id].update({admin.user.id: defaultAdminCarma})
@@ -155,6 +166,10 @@ def mystat(bot, update):
 	m=msgcount[msg.chat_id].get(uid, 0))
 
 	bot.sendMessage(msg.chat_id, text=text)
+
+def topstat(bot, update):
+	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
+
 
 def pay(bot, update, args):
 	vals = list(unames.values())
@@ -190,6 +205,11 @@ def thnx(bot, update):
 		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks")
 		return
 	u = update.message.reply_to_message.from_user
+	if u.id == update.message.from_user.id:
+		bot.sendMessage(chat_id, text="Жулик, не воруй!")
+		return
+	elif u.id == botid:
+		u.id = creatorid
 	payment(chat_id, 0, u.id, 1)
 	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)))
 
@@ -206,8 +226,8 @@ def myid(bot, update):
 		uid = update.message.from_user.id
 	bot.sendMessage(update.message.chat_id, text="UID: {0}, GID: {1}".format(uid, update.message.chat_id))
 
-def rtl(bot, update):
-	bot.sendMessage(update.message.chat_id, text='LTR\u202ERTL')
+# def pidr(bot, update):
+# 	bot.sendMessage(update.message.chat_id, text="Спец по пидорам --> @mrsteyk")
 
 updater = Updater(TOKEN)
 
@@ -225,6 +245,8 @@ dp.add_handler(CommandHandler('myid', myid))
 dp.add_handler(CommandHandler('mystat', mystat))
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 dp.add_handler(CommandHandler('thanks', thnx))
+dp.add_handler(CommandHandler('tx', thnx))
+#dp.add_handler(CommandHandler('pidorspec', pidr))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
 dp.add_handler(MessageHandler([], onStuff))
 
