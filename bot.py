@@ -13,7 +13,7 @@ botid = int(TOKEN[:TOKEN.index(':')])
 
 help_text = """Привет. Я бот, который считает карму в чате :)
 Если ты хочешь узнать свою статистику, напиши /mystat или /st
--Если тебе нужен топ пользователей, напиши /topstat
+Если тебе нужен топ пользователей, напиши /topstat или /top
 Для перевода кармы используй /pay
 -А для запроса о переводе кармы — /ask
 Если вы хотите поблагодарить человека, используйте /thanks или /tx
@@ -83,13 +83,14 @@ def getuname(user):
 		return user.first_name
 
 def onStuff(bot, update):
-	global msgcount
+	global msgcount, unames
 	uid = update.message.from_user.id
 	gid = update.message.chat_id
 	if uid != gid:
 		msgcount[gid][uid] = msgcount[gid].get(uid, 0) + 1
 	if not uid in carma[gid]:
 		carma[gid][uid] = defaultUserCarma
+	unames.update({uid, getuname(update.message.from_user)})
 
 
 def jobdaily(bot, job):
@@ -101,11 +102,15 @@ def jobdaily(bot, job):
 		sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 		bonus = 10
 		for u in range(3):
-			usrid = sorttop[u][0]
+			try:
+				usrid = sorttop[u][0]
+			except IndexError:
+				break
 			carma[cid][usrid] = carma[cid].get(usrid, 0) + bonus
 			bonus = bonus // 2
 
-	msgcount.clear()
+	for chats in msgcount:
+		chats.clear()
 
 def jobhourly(bot, job):
 	with open('msg.pkl', 'wb') as f:
@@ -117,15 +122,16 @@ def jobhourly(bot, job):
 def start(bot, update, args):
 	global carma, msgcount
 	chat_id = update.message.chat_id
-	if len(args) == 1 and update.message.from_user.id == creatorid:
+	if len(args) != 0 and update.message.from_user.id == creatorid:
 		if args[0] == 'flush':
 			jobhourly(None, None)
 			bot.sendMessage(chat_id, text="Экстренная запись на диск выполнена")
-			return
 		elif args[0] == 'spin':
 			jobdaily(None, None)
 			bot.sendMessage(chat_id, text="Экстренная раздача кармы по топу сообщений выполнена")
-			return
+		elif args[0] == 'dbgvar':
+			bot.sendMessage(update.message.chat_id, text="{}".format(eval(args[1])))
+		return
 	if chat_id == update.message.from_user.id:
 		bot.sendMessage(chat_id, text="Готово, теперь вы можете получать уведомления.")
 		return
@@ -169,7 +175,15 @@ def mystat(bot, update):
 
 def topstat(bot, update):
 	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
-
+	chat_id = update.message.chat_id
+	msg = "Статистика пользователей: \n"
+	for i in sorttop:
+		try:
+			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
+		except IndexError:
+			break
+		msg += "{}: {} сообщений, {} кармы\n".format(un, sorttop[i][1], carma[chat_id].get(sorttop[i][0], defaultUserCarma))
+	bot.sendMessage(chat_id, text=msg)
 
 def pay(bot, update, args):
 	vals = list(unames.values())
@@ -230,6 +244,7 @@ def myid(bot, update):
 # 	bot.sendMessage(update.message.chat_id, text="Спец по пидорам --> @mrsteyk")
 
 updater = Updater(TOKEN)
+del TOKEN
 
 jobs = updater.job_queue
 
@@ -243,6 +258,9 @@ dp.add_handler(CommandHandler('help', Help))
 dp.add_handler(CommandHandler('about', about))
 dp.add_handler(CommandHandler('myid', myid))
 dp.add_handler(CommandHandler('mystat', mystat))
+dp.add_handler(CommandHandler('st', mystat))
+dp.add_handler(CommandHandler('topstat', topstat))
+dp.add_handler(CommandHandler('top', topstat))
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
