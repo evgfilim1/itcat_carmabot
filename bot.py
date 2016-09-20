@@ -183,10 +183,20 @@ def mystat(bot, update):
 
 def topstat(bot, update):
 	chat_id = update.message.chat_id
-	if update.message.text[1] == 'm':
-		chat = msgcount[chat_id]
-	else:
-		chat = carma[chat_id]
+	chat = carma[chat_id]
+	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
+	msg = "Статистика пользователей: \n"
+	for i in range(10):
+		try:
+			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
+		except IndexError:
+			break
+		msg += "{}: {} сообщений, {} кармы\n".format(un, carma[chat_id].get(sorttop[i][0], defaultUserCarma), sorttop[i][1])
+	bot.sendMessage(chat_id, text=msg)
+
+def mtopstat(bot, update):
+	chat_id = update.message.chat_id
+	chat = msgcount[chat_id]
 	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 	msg = "Статистика пользователей: \n"
 	for i in range(10):
@@ -274,8 +284,8 @@ dp.add_handler(CommandHandler('mystat', mystat))
 dp.add_handler(CommandHandler('st', mystat))
 dp.add_handler(CommandHandler('topstat', topstat))
 dp.add_handler(CommandHandler('top', topstat))
-dp.add_handler(CommandHandler('msgtopstat', topstat))
-dp.add_handler(CommandHandler('mtop', topstat))
+dp.add_handler(CommandHandler('msgtopstat', mtopstat))
+dp.add_handler(CommandHandler('mtop', mtopstat))
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
