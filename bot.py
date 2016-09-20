@@ -141,6 +141,8 @@ def jobhourly(bot, job):
 		pickle.dump(carma, f, pickle.HIGHEST_PROTOCOL)
 	with open('unames.pkl', 'wb') as f:
 		pickle.dump(unames, f, pickle.HIGHEST_PROTOCOL)
+	with open('subs.pkl', 'wb') as f:
+		pickle.dump(subscribed, f, pickle.HIGHEST_PROTOCOL)
 	logging.info("data saved.")
 
 def start(bot, update, args):
@@ -273,7 +275,7 @@ def thnx(bot, update):
 	elif u.id == botid:
 		u.id = creatorid
 	payment(chat_id, 0, u.id, 1)
-	sendnotif(bot, fromid, toid, arg)
+	sendnotif(bot, 0, u.id, 1)
 	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)),
 		reply_to_message_id=update.message.message_id)
 
@@ -309,7 +311,6 @@ def myid(bot, update):
 def pidr(bot, update):
 	onStuff(bot, update)
 	payment(update.message.chat_id, update.message.from_user.id, 0, 100)
-	#sendnotif(bot, fromid, toid, arg)
 
 updater = Updater(TOKEN)
 del TOKEN
@@ -365,6 +366,8 @@ if path.exists('msg.pkl'):
 		carma = pickle.load(f)
 	with open('unames.pkl', 'rb') as f:
 		unames = pickle.load(f)
+	with open('subs.pkl', 'rb') as f:
+		subscribed = pickle.load(f)
 	logging.info("data loaded.")
 
 updater.start_polling()
