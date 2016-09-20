@@ -65,6 +65,7 @@ filters = [Filters.audio,
 carma = {}
 msgcount = {}
 unames = {}
+chatadmins = {}
 subscribed = []
 #bank = {}
 
@@ -73,12 +74,17 @@ def error(bot, update, error):
 	bot.sendMessage(update.message.chat_id, text="Произошла ошибка при обработке этого сообщения", 
 		reply_to_message_id=update.message.message_id)
 
-def payment(chat_id, from_id, to_id, amount):
+def payment(chat_id, from_id, to_id, amount, check=False):
 	global carma
+	fromcarma = carma[chat_id].get(from_id, defaultUserCarma)
+	if check and amount > fromcarma:
+		return False
 	if from_id != 0:
-		carma[chat_id][from_id] = carma[chat_id].get(from_id, defaultUserCarma) - amount
+		carma[chat_id][from_id] = fromcarma - amount
 	if to_id != 0:
 		carma[chat_id][to_id] = carma[chat_id].get(to_id, defaultUserCarma) + amount
+
+	return True
 
 def getuname(user):
 	if bool(user.username):
@@ -99,10 +105,14 @@ def onStuff(bot, update):
 
 def jobdaily(bot, job):
 	global msgcount
-	items = list(msgcount.items())
-	for c in items:
-		chat = c[1]
-		cid = c[0]
+	# \/ \/ \/ SHITCODE \/ \/ \/
+	# items = list(msgcount.items())
+	# for c in items:
+	# 	chat = c[1]
+	# 	cid = c[0]
+	# /\ /\ /\ SHITCODE /\ /\ /\
+	for cid in msgcount:
+		chat = msgcount[cid]
 		sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 		bonus = 10
 		for u in range(3):
@@ -113,8 +123,8 @@ def jobdaily(bot, job):
 			carma[cid][usrid] = carma[cid].get(usrid, 0) + bonus
 			bonus = bonus // 2
 
-	for chats in msgcount:
-		chats.clear()
+	for chat in msgcount:
+		msgcount[chat].clear()
 
 def jobhourly(bot, job):
 	with open('msg.pkl', 'wb') as f:
@@ -126,7 +136,7 @@ def jobhourly(bot, job):
 	logging.info("data saved.")
 
 def start(bot, update, args):
-	global carma, msgcount
+	global carma, msgcount, chatadmins, unames
 	chat_id = update.message.chat_id
 	if len(args) != 0 and update.message.from_user.id == creatorid:
 		if args[0] == 'flush':
@@ -151,12 +161,14 @@ def start(bot, update, args):
 			return
 	carma[chat_id] = {}
 	msgcount[chat_id] = {}
+	chatadmins[chat_id] = []
 	#bank[chat_id] = 0
 	admins = bot.getChatAdministrators(chat_id)
 	for admin in admins:
 		carma[chat_id].update({admin.user.id: defaultAdminCarma})
 		msgcount[chat_id].update({admin.user.id: 0})
 		unames.update({admin.user.id: getuname(admin.user)})
+		chatadmins[chat_id].append(admin.user.id)
 
 	bot.sendMessage(chat_id, text="Чат инициализирован. /help")
 
@@ -208,7 +220,6 @@ def mtopstat(bot, update):
 	bot.sendMessage(chat_id, text=msg)
 
 def pay(bot, update, args):
-	vals = list(unames.values())
 	fromid = update.message.from_user.id
 	chat_id = update.message.chat_id
 	fail = False
@@ -232,8 +243,10 @@ def pay(bot, update, args):
 	if toid == botid:
 		toid = creatorid
 
-	payment(chat_id, fromid, toid, arg)
-	bot.sendMessage(chat_id, text="{} кармы переведено.".format(arg))
+	if not payment(chat_id, fromid, toid, arg, True):
+		bot.sendMessage(chat_id, text="Недостаточно кармы!")
+	else:
+		bot.sendMessage(chat_id, text="{} кармы переведено.".format(arg))
 		
 def thnx(bot, update):
 	chat_id = update.message.chat_id
@@ -276,23 +289,35 @@ jobs.put(Job(jobdaily, 86400.0))
 
 dp = updater.dispatcher
 
+##########
 dp.add_handler(CommandHandler('start', start, pass_args=True))
 dp.add_handler(CommandHandler('help', Help))
 dp.add_handler(CommandHandler('about', about))
+##########
 dp.add_handler(CommandHandler('myid', myid))
+##########
 dp.add_handler(CommandHandler('mystat', mystat))
 dp.add_handler(CommandHandler('st', mystat))
+##########
 dp.add_handler(CommandHandler('topstat', topstat))
 dp.add_handler(CommandHandler('top', topstat))
+##########
 dp.add_handler(CommandHandler('msgtopstat', mtopstat))
 dp.add_handler(CommandHandler('mtop', mtopstat))
+##########
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
+##########
 dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
+##########
 dp.add_handler(CommandHandler('tipidor', pidr))
+dp.add_handler(CommandHandler('pidor', pidr))
+dp.add_handler(CommandHandler('pidr', pidr))
+##########
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
+##########
 dp.add_handler(MessageHandler([], onStuff))
-
+##########
 dp.add_error_handler(error)
 
 if path.exists('msg.pkl'):
