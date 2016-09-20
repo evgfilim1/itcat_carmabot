@@ -13,12 +13,13 @@ logging.basicConfig(format = '%(levelname)-8s [%(asctime)s] %(message)s', level 
 botid = int(TOKEN[:TOKEN.index(':')])
 
 help_text = """Привет. Я бот, который считает карму в чате :)
-Если ты хочешь узнать свою статистику, напиши /mystat или /st
-Если тебе нужен топ пользователей, напиши /topstat или /top
-Для перевода кармы используй /pay
--А для запроса о переводе кармы — /ask
-Если вы хотите поблагодарить человека, используйте /thanks или /tx
--Если тебе надо подписаться на изменения своей кармы, напиши /carmasubscr
+/mystat или /st — узнать статистику пользователя
+/topstat или /top — топ пользователей по карме
+/msgtopstat или /mtop — топ пользователей по сообщениям
+/pay — перевести карму
+-/ask — попросить карму
+/thanks или /tx — +1 к карме другого человека
+-/carmasubscr — подписаться на изменения кармы (сообщения приходят в ЛС)
 -Для отписки — /carmaunsubscr
 
 Каждый день самым активным пользователям чата — призы!
@@ -27,7 +28,8 @@ help_text = """Привет. Я бот, который считает карму
 За 3 место — +2 к карме
 _____
 Инфо о боте —> /about
-Строки, начинающиеся с - обозначают ещё не реализованную возможность"""
+Строки, начинающиеся с '-' обозначают ещё не реализованную возможность
+Вскоре будут доступны некоторые плюшки с тратой кармы, а пока, зарабатывайте её!"""
 
 about_text = """Я бот, который считает карму в чате :)
 По всем вопросам, обращайся к моему создателю —> @evgfilim1
@@ -63,8 +65,8 @@ filters = [Filters.audio,
 carma = {}
 msgcount = {}
 unames = {}
+subscribed = []
 #bank = {}
-#subscribed = []
 
 def error(bot, update, error):
 	logging.warning('Update "{0}" caused error "{1}"'.format(update, error))
@@ -118,6 +120,8 @@ def jobhourly(bot, job):
 		pickle.dump(msgcount, f, pickle.HIGHEST_PROTOCOL)
 	with open('carma.pkl', 'wb') as f:
 		pickle.dump(carma, f, pickle.HIGHEST_PROTOCOL)
+	with open('unames.pkl', 'wb') as f:
+		pickle.dump(unames, f, pickle.HIGHEST_PROTOCOL)
 	logging.info("data saved.")
 
 def start(bot, update, args):
@@ -178,7 +182,10 @@ def mystat(bot, update):
 
 def topstat(bot, update):
 	chat_id = update.message.chat_id
-	chat = msgcount[chat_id]
+	if update.message.text[1] == 'm':
+		chat = msgcount[chat_id]
+	else:
+		chat = carma[chat_id]
 	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 	msg = "Статистика пользователей: \n"
 	for i in range(10):
@@ -265,6 +272,8 @@ dp.add_handler(CommandHandler('mystat', mystat))
 dp.add_handler(CommandHandler('st', mystat))
 dp.add_handler(CommandHandler('topstat', topstat))
 dp.add_handler(CommandHandler('top', topstat))
+dp.add_handler(CommandHandler('msgtopstat', topstat))
+dp.add_handler(CommandHandler('mtop', topstat))
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
@@ -279,6 +288,8 @@ if path.exists('msg.pkl'):
 		msgcount = pickle.load(f)
 	with open('carma.pkl', 'rb') as f:
 		carma = pickle.load(f)
+	with open('unames.pkl', 'rb') as f:
+		unames = pickle.load(f)
 	logging.info("data loaded.")
 
 updater.start_polling()
