@@ -71,13 +71,14 @@ subscribed = []
 def error(bot, update, error):
 	logging.warning('Update "{0}" caused error "{1}"'.format(update, error))
 	bot.sendMessage(update.message.chat_id, text="Произошла ошибка при обработке этого сообщения", 
-		reply_to_message=update.message.message_id)
+		reply_to_message_id=update.message.message_id)
 
 def payment(chat_id, from_id, to_id, amount):
 	global carma
 	if from_id != 0:
 		carma[chat_id][from_id] = carma[chat_id].get(from_id, defaultUserCarma) - amount
-	carma[chat_id][to_id] = carma[chat_id].get(to_id, defaultUserCarma) + amount
+	if to_id != 0:
+		carma[chat_id][to_id] = carma[chat_id].get(to_id, defaultUserCarma) + amount
 
 def getuname(user):
 	if bool(user.username):
@@ -251,8 +252,9 @@ def myid(bot, update):
 		uid = update.message.from_user.id
 	bot.sendMessage(update.message.chat_id, text="UID: {0}, GID: {1}".format(uid, update.message.chat_id))
 
-# def pidr(bot, update):
-# 	bot.sendMessage(update.message.chat_id, text="Спец по пидорам --> @mrsteyk")
+def pidr(bot, update):
+	onStuff(bot, update)
+	payment(update.message.chat_id, update.message.from_user.id, 0, 1000)
 
 updater = Updater(TOKEN)
 del TOKEN
@@ -277,7 +279,7 @@ dp.add_handler(CommandHandler('mtop', topstat))
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
-#dp.add_handler(CommandHandler('pidorspec', pidr))
+dp.add_handler(CommandHandler('tipidor', pidr))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
 dp.add_handler(MessageHandler([], onStuff))
 
