@@ -19,16 +19,17 @@ help_text = """Привет. Я бот, который считает карму
 /pay — перевести карму
 -/ask — попросить карму
 /thanks или /tx — +1 к карме другого человека
--/carmasubscr — подписаться на изменения кармы (сообщения приходят в ЛС)
--Для отписки — /carmaunsubscr
+*/sub или /subscr — подписаться на изменения кармы (сообщения приходят в ЛС)
+*Для отписки — /unsub или /unsubscr
 
-Каждый день самым активным пользователям чата — призы!
+*Каждый день самым активным пользователям чата — призы!
 За 1 место — +10 к карме
 За 2 место — +5 к карме
 За 3 место — +2 к карме
 _____
 Инфо о боте —> /about
 Строки, начинающиеся с '-' обозначают ещё не реализованную возможность
+Строки, начинающиеся с '*' обозначают ещё не протестированную возможность
 Вскоре будут доступны некоторые плюшки с тратой кармы, а пока, зарабатывайте её!"""
 
 about_text = """Я бот, который считает карму в чате :)
@@ -86,6 +87,13 @@ def payment(chat_id, from_id, to_id, amount, check=False):
 
 	return True
 
+def sendnotif(bot, from_id, to_id, amount):
+	if from_id != 0 and from_id in subscribed:
+		bot.sendMessage(from_id, text="У вас было отнято {} кармы".format(amount))
+
+	if to_id != 0 and to_id in subscribed:
+		bot.sendMessage(to_id, text="Вам было добавлено {} кармы".format(amount))
+
 def getuname(user):
 	if bool(user.username):
 		return user.username
@@ -141,11 +149,13 @@ def start(bot, update, args):
 	if len(args) != 0 and update.message.from_user.id == creatorid:
 		if args[0] == 'flush':
 			jobhourly(None, None)
-			bot.sendMessage(chat_id, text="Экстренная запись на диск выполнена")
+			bot.sendMessage(chat_id, text="Экстренная запись на диск выполнена",
+				reply_to_message_id=update.message.message_id)
 			return
 		elif args[0] == 'spin':
 			jobdaily(None, None)
-			bot.sendMessage(chat_id, text="Экстренная раздача кармы по топу сообщений выполнена")
+			bot.sendMessage(chat_id, text="Экстренная раздача кармы по топу сообщений выполнена", 
+				reply_to_message_id=update.message.message_id)
 			return
 		elif args[0] == 'dbgvar':
 			bot.sendMessage(update.message.chat_id, text="{}".format(eval(args[1])))
@@ -155,9 +165,9 @@ def start(bot, update, args):
 		return
 	if chat_id in carma:
 		if len(args) == 1 and args[0] == 'reinit' and update.message.from_user.id == creatorid:
-			bot.sendMessage(chat_id, text="Реинициализация чата...")
+			bot.sendMessage(chat_id, text="Реинициализация чата...", reply_to_message_id=update.message.message_id)
 		else:
-			bot.sendMessage(chat_id, text="Этот чат уже инициализирован")
+			bot.sendMessage(chat_id, text="Этот чат уже инициализирован", reply_to_message_id=update.message.message_id)
 			return
 	carma[chat_id] = {}
 	msgcount[chat_id] = {}
@@ -191,7 +201,7 @@ def mystat(bot, update):
 Сообщений за день: {m}""".format(u=getuname(uu), c=carma[msg.chat_id].get(uid, defaultUserCarma), 
 	m=msgcount[msg.chat_id].get(uid, 0))
 
-	bot.sendMessage(msg.chat_id, text=text)
+	bot.sendMessage(msg.chat_id, text=text, reply_to_message_id=update.message.message_id)
 
 def topstat(bot, update):
 	chat_id = update.message.chat_id
@@ -203,7 +213,7 @@ def topstat(bot, update):
 			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
 		except IndexError:
 			break
-		msg += "{}: {} сообщений, {} кармы\n".format(un, msgcount[chat_id].get(sorttop[i][0], defaultUserCarma), sorttop[i][1])
+		msg += "{}: {} сообщений, {} кармы\n".format(un, msgcount[chat_id].get(sorttop[i][0], 0), sorttop[i][1])
 	bot.sendMessage(chat_id, text=msg)
 
 def mtopstat(bot, update):
@@ -232,7 +242,8 @@ def pay(bot, update, args):
 		fail = True
 
 	if fail:
-		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /pay <сумма>")
+		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /pay <сумма>", 
+			reply_to_message_id=update.message.message_id)
 		return
 	else:
 		toid = update.message.reply_to_message.from_user.id
@@ -244,23 +255,27 @@ def pay(bot, update, args):
 		toid = creatorid
 
 	if not payment(chat_id, fromid, toid, arg, True):
-		bot.sendMessage(chat_id, text="Недостаточно кармы!")
+		bot.sendMessage(chat_id, text="Недостаточно кармы!", reply_to_message_id=update.message.message_id)
 	else:
-		bot.sendMessage(chat_id, text="{} кармы переведено.".format(arg))
+		bot.sendMessage(chat_id, text="{} кармы переведено.".format(arg), reply_to_message_id=update.message.message_id)
+	sendnotif(bot, fromid, toid, arg)
 		
 def thnx(bot, update):
 	chat_id = update.message.chat_id
 	if not bool(update.message.reply_to_message):
-		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks")
+		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
+			reply_to_message_id=update.message.message_id)
 		return
 	u = update.message.reply_to_message.from_user
 	if u.id == update.message.from_user.id:
-		bot.sendMessage(chat_id, text="Жулик, не воруй!")
+		bot.sendMessage(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
 		return
 	elif u.id == botid:
 		u.id = creatorid
 	payment(chat_id, 0, u.id, 1)
-	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)))
+	sendnotif(bot, fromid, toid, arg)
+	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)),
+		reply_to_message_id=update.message.message_id)
 
 def statusupdate(bot, update):
 	if not bool(update.message.new_chat_member):
@@ -268,16 +283,33 @@ def statusupdate(bot, update):
 	if update.message.new_chat_member.id == botid:
 		start(bot, update)
 
+def subscr(bot, update):
+	chat_id = update.message.chat_id
+	from_user = update.message.from_user
+	subscribed.append(from_user.id)
+	bot.sendMessage(chat_id, text="""Успешно подписаны на обновления кармы.
+		!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", 
+		reply_to_message_id=update.message.message_id)
+
+def unsubscr(bot, update):
+	chat_id = update.message.chat_id
+	from_user = update.message.from_user
+	subscribed.append(from_user.id)
+	bot.sendMessage(chat_id, text="Успешно отписаны от обновлений кармы.", 
+		reply_to_message_id=update.message.message_id)
+
 def myid(bot, update):
 	if bool(update.message.reply_to_message):
 		uid = update.message.reply_to_message.from_user.id
 	else:
 		uid = update.message.from_user.id
-	bot.sendMessage(update.message.chat_id, text="UID: {0}, GID: {1}".format(uid, update.message.chat_id))
+	bot.sendMessage(update.message.chat_id, text="UID: {0}, GID: {1}".format(uid, update.message.chat_id), 
+		reply_to_message_id=update.message.message_id)
 
 def pidr(bot, update):
 	onStuff(bot, update)
-	payment(update.message.chat_id, update.message.from_user.id, 0, 1000)
+	payment(update.message.chat_id, update.message.from_user.id, 0, 100)
+	#sendnotif(bot, fromid, toid, arg)
 
 updater = Updater(TOKEN)
 del TOKEN
@@ -309,6 +341,12 @@ dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 ##########
 dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
+##########
+dp.add_handler(CommandHandler('subscr', subscr))
+dp.add_handler(CommandHandler('sub', subscr))
+##########
+dp.add_handler(CommandHandler('unsubscr', unsubscr))
+dp.add_handler(CommandHandler('unsub', unsubscr))
 ##########
 dp.add_handler(CommandHandler('tipidor', pidr))
 dp.add_handler(CommandHandler('pidor', pidr))
