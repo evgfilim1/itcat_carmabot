@@ -191,7 +191,7 @@ def topstat(bot, update):
 			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
 		except IndexError:
 			break
-		msg += "{}: {} сообщений, {} кармы\n".format(un, carma[chat_id].get(sorttop[i][0], defaultUserCarma), sorttop[i][1])
+		msg += "{}: {} сообщений, {} кармы\n".format(un, msgcount[chat_id].get(sorttop[i][0], defaultUserCarma), sorttop[i][1])
 	bot.sendMessage(chat_id, text=msg)
 
 def mtopstat(bot, update):
