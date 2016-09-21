@@ -300,7 +300,7 @@ def unsubscr(bot, update):
 	chat_id = update.message.chat_id
 	from_user = update.message.from_user
 	if from_user.id in subscribed:
-		subscribed.pop(from_user.id)
+		subscribed.pop(subscribed.index(from_user.id))
 		bot.sendMessage(chat_id, text="Успешно отписаны от обновлений кармы.", 
 			reply_to_message_id=update.message.message_id)
 	else:
