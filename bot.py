@@ -288,17 +288,23 @@ def statusupdate(bot, update):
 def subscr(bot, update):
 	chat_id = update.message.chat_id
 	from_user = update.message.from_user
-	subscribed.append(from_user.id)
-	bot.sendMessage(chat_id, text="""Успешно подписаны на обновления кармы.
-		!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", 
-		reply_to_message_id=update.message.message_id)
+	if not from_user.id in subscribed:
+		subscribed.append(from_user.id)
+		bot.sendMessage(chat_id, text="""Успешно подписаны на обновления кармы.
+			!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", 
+			reply_to_message_id=update.message.message_id)
+	else:
+		bot.sendMessage(chat_id, text="Вы уже подписаны на обновления.", reply_to_message_id=update.message.message_id)
 
 def unsubscr(bot, update):
 	chat_id = update.message.chat_id
 	from_user = update.message.from_user
-	subscribed.append(from_user.id)
-	bot.sendMessage(chat_id, text="Успешно отписаны от обновлений кармы.", 
-		reply_to_message_id=update.message.message_id)
+	if from_user.id in subscribed:
+		subscribed.pop(from_user.id)
+		bot.sendMessage(chat_id, text="Успешно отписаны от обновлений кармы.", 
+			reply_to_message_id=update.message.message_id)
+	else:
+		bot.sendMessage(chat_id, text="Вы ещё не подписаны на обновления.", reply_to_message_id=update.message.message_id)
 
 def myid(bot, update):
 	if bool(update.message.reply_to_message):
