@@ -143,23 +143,10 @@ def jobhourly(bot, job):
 def start(bot, update, args):
 	global carma, msgcount, chatadmins, unames
 	chat_id = update.message.chat_id
-	if len(args) != 0 and update.message.from_user.id == creatorid:
-		if args[0] == 'flush':
-			jobhourly(None, None)
-			bot.sendMessage(chat_id, text="Экстренная запись на диск выполнена",
-				reply_to_message_id=update.message.message_id)
-			return
-		elif args[0] == 'spin':
-			jobdaily(None, None)
-			bot.sendMessage(chat_id, text="Экстренная раздача кармы по топу сообщений выполнена", 
-				reply_to_message_id=update.message.message_id)
-			return
-		elif args[0] == 'dbgvar':
-			bot.sendMessage(update.message.chat_id, text="{}".format(eval(args[1])))
-			return
 	if chat_id == update.message.from_user.id:
 		bot.sendMessage(chat_id, text="Готово, теперь вы можете получать уведомления.")
 		return
+
 	if chat_id in carma:
 		if len(args) == 1 and args[0] == 'reinit' and update.message.from_user.id == creatorid:
 			bot.sendMessage(chat_id, text="Реинициализация чата...", reply_to_message_id=update.message.message_id)
@@ -208,6 +195,62 @@ def button(bot, update):
 				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Недостаточно кармы")
 	else:
 		return
+
+def adminpanel(bot, update, args):
+	chat_id = update.message.chat_id
+	from_id = update.message.from_user.id
+	if from_id not in chatadmins[chat_id] and from_id != creatorid:
+		bot.sendMessage(chat_id, text="Недостаточно прав", reply_to_message_id=update.message.message_id)
+		return
+
+	if len(args) == 0:
+		bot.sendMessage(chat_id, text="""Available commands:
+flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=update.message.message_id)
+
+	else:
+		cmd = args[0]
+		args.pop(0)
+		if cmd == 'flush':
+			jobhourly(None, None)
+			bot.sendMessage(chat_id, text="jobhourly done",
+				reply_to_message_id=update.message.message_id)
+			return
+		elif cmd == 'spin':
+			jobdaily(None, None)
+			bot.sendMessage(chat_id, text="jobdaily done", 
+				reply_to_message_id=update.message.message_id)
+			return
+		elif cmd == 'reinit':
+			start(bot, update, ['reinit'])
+			return
+		elif cmd == 'givecarma':
+			try:
+				toid = int(args[0])
+				amount = int(args[1])
+			except:
+				bot.sendMessage(chat_id, text="Usage: /admin givecarma <to_id> <amount>")
+				return
+			fromid = 0
+		elif cmd == 'setcarma':
+			try:
+				toid = int(args[0])
+				amount = int(args[1])
+			except:
+				bot.sendMessage(chat_id, text="Usage: /admin setcarma <to_id> <amount>")
+				return
+			carma[chat_id][toid] = amount
+			return
+		elif cmd == 'takecarma':
+			try:
+				fromid = int(args[0])
+				amount = int(args[1])
+			except:
+				bot.sendMessage(chat_id, text="Usage: /admin takecarma <to_id> <amount>")
+				return
+			toid = 0
+
+		payment(chat_id, fromid, toid, amount)
+		sendnotif(bot, fromid, toid, amount)
 
 def mystat(bot, update):
 	msg = update.message
@@ -273,7 +316,13 @@ def ask(bot, update, args):
 			[InlineKeyboardButton("Закончить сбор", callback_data=templ.format(toid, 'stop'))]]
 	mrkup = InlineKeyboardMarkup(kbrd)
 
-	bot.sendMessage(chat_id, text="{} просит {} кармы.".format(getuname(update.message.from_user), arg), 
+	captstr = ''
+	if len(args) > 1:
+		captstr = "\nКомментарий: "
+		args.pop(0)
+		captstr += ' '.join(args)
+
+	bot.sendMessage(chat_id, text="{} просит {} кармы.{}".format(getuname(update.message.from_user), arg, captstr), 
 		reply_markup=mrkup)
 
 def pay(bot, update, args):
@@ -415,6 +464,8 @@ dp.add_handler(CommandHandler('sub', subscr))
 ##########
 dp.add_handler(CommandHandler('unsubscr', unsubscr))
 dp.add_handler(CommandHandler('unsub', unsubscr))
+##########
+dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True))
 ##########
 dp.add_handler(CommandHandler('tipidor', pidr))
 dp.add_handler(CommandHandler('pidor', pidr))
