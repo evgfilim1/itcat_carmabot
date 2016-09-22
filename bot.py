@@ -88,10 +88,12 @@ def payment(chat_id, from_id, to_id, amount, check=False):
 
 def sendnotif(bot, from_id, to_id, amount):
 	if from_id != 0 and from_id in subscribed:
-		bot.sendMessage(from_id, text="У вас было отнято {} кармы".format(amount))
+		bot.sendMessage(from_id, text="У вас было отнято {} кармы пользователем {}".format(amount, 
+			unames.get(from_id, 'Unknown user {}'.format(from_id))))
 
 	if to_id != 0 and to_id in subscribed:
-		bot.sendMessage(to_id, text="Вам было добавлено {} кармы".format(amount))
+		bot.sendMessage(to_id, text="Вам было добавлено {} кармы пользователем {}".format(amount, 
+			unames.get(to_id, 'Unknown user {}'.format(to_id))))
 
 def getuname(user):
 	if bool(user.username):
@@ -187,20 +189,21 @@ def button(bot, update):
 	query = update.callback_query
 	data = query.data.split(':')
 	chat_id = query.message.chat_id
-	# msg_id = query.message.message_id
+	msg_id = query.message.message_id
 	inlmsgid = query.id
-	qfrom = query.from_user
+	qfrom = query.from_user.id
 
 	if data[0] == 'asked':
 		if data[2] == 'stop':
 			if int(data[1]) == qfrom:
-				bot.editMessageText(inline_message_id=inlmsg_id, reply_markup=InlineKeyboardMarkup([]),
+				bot.editMessageText(chat_id=chat_id, message_id=msg_id, reply_markup=InlineKeyboardMarkup([]),
 					text="Сбор кармы остановлен владельцем.")
 			else:
 				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Вы не владелец этого сбора кармы")
 		else:
 			if payment(chat_id, qfrom, int(data[1]), int(data[2]), True):
 				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Успешно переведено {} кармы".format(data[2]))
+				sendnotif(bot, qfrom, int(data[1]), int(data[2]))
 			else:
 				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Недостаточно кармы")
 	else:
@@ -348,13 +351,25 @@ def unsubscr(bot, update):
 	else:
 		bot.sendMessage(chat_id, text="Вы ещё не подписаны на обновления.", reply_to_message_id=update.message.message_id)
 
-def myid(bot, update):
+def uid(bot, update):
 	if bool(update.message.reply_to_message):
 		uid = update.message.reply_to_message.from_user.id
 	else:
 		uid = update.message.from_user.id
 	bot.sendMessage(update.message.chat_id, text="UID: {0}, GID: {1}".format(uid, update.message.chat_id), 
 		reply_to_message_id=update.message.message_id)
+
+def whois(bot, update, args):
+	try:
+		whoid = int(args[0])
+	except:
+		bot.sendMessage(update.message.chat_id, text="Использование: /whois UID",
+			reply_to_message_id=update.message.message_id)
+		return
+
+	who = bot.getChat(whoid)
+	bot.sendMessage(update.message.chat_id, text="Whois {}: Username: {}, FirstName: {}, LastName: {}".format(who.id,
+		who.username, who.first_name, who.last_name), reply_to_message_id=update.message.message_id)
 
 def pidr(bot, update):
 	onStuff(bot, update)
@@ -375,7 +390,9 @@ dp.add_handler(CommandHandler('start', start, pass_args=True))
 dp.add_handler(CommandHandler('help', Help))
 dp.add_handler(CommandHandler('about', about))
 ##########
-dp.add_handler(CommandHandler('myid', myid))
+dp.add_handler(CommandHandler('uid', uid))
+##########
+dp.add_handler(CommandHandler('whois', whois, pass_args=True))
 ##########
 dp.add_handler(CommandHandler('mystat', mystat))
 dp.add_handler(CommandHandler('st', mystat))
