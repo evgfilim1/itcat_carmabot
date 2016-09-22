@@ -138,6 +138,8 @@ def jobhourly(bot, job):
 		pickle.dump(unames, f, pickle.HIGHEST_PROTOCOL)
 	with open('subs.pkl', 'wb') as f:
 		pickle.dump(subscribed, f, pickle.HIGHEST_PROTOCOL)
+	with open('admins.pkl', 'wb') as f:
+		pickle.dump(chatadmins, f, pickle.HIGHEST_PROTOCOL)
 	logging.info("data saved.")
 
 def start(bot, update, args):
@@ -148,7 +150,7 @@ def start(bot, update, args):
 		return
 
 	if chat_id in carma:
-		if len(args) == 1 and args[0] == 'reinit' and update.message.from_user.id == creatorid:
+		if len(args) == 1 and args[0] == 'clear' and update.message.from_user.id == creatorid:
 			bot.sendMessage(chat_id, text="Реинициализация чата...", reply_to_message_id=update.message.message_id)
 		else:
 			bot.sendMessage(chat_id, text="Этот чат уже инициализирован", reply_to_message_id=update.message.message_id)
@@ -197,6 +199,7 @@ def button(bot, update):
 		return
 
 def adminpanel(bot, update, args):
+	global carma, msgcount, unames, chatadmins, subscribed
 	chat_id = update.message.chat_id
 	from_id = update.message.from_user.id
 	if from_id not in chatadmins[chat_id] and from_id != creatorid:
@@ -212,16 +215,32 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=upda
 		args.pop(0)
 		if cmd == 'flush':
 			jobhourly(None, None)
-			bot.sendMessage(chat_id, text="jobhourly done",
-				reply_to_message_id=update.message.message_id)
+			bot.sendMessage(chat_id, text="jobhourly done", reply_to_message_id=update.message.message_id)
 			return
 		elif cmd == 'spin':
 			jobdaily(None, None)
-			bot.sendMessage(chat_id, text="jobdaily done", 
-				reply_to_message_id=update.message.message_id)
+			bot.sendMessage(chat_id, text="jobdaily done",  reply_to_message_id=update.message.message_id)
 			return
 		elif cmd == 'reinit':
-			start(bot, update, ['reinit'])
+			if args[0] == 'all':
+				start(bot, update, ['clear'])
+			elif args[0] == 'carma':
+				carma[chat_id] = {}
+			elif args[0] == 'msgcount':
+				msgcount[chat_id] = {}
+			elif args[0] == 'unames':
+				unames = {}
+			elif args[0] == 'chatadmins':
+				chatadmins[chat_id] = []
+				admins = bot.getChatAdministrators(chat_id)
+				for admin in admins:
+					chatadmins[chat_id].append(admin.user.id)
+			elif args[0] == 'subscribed':
+				subscribed = []
+			else:
+				bot.sendMessage(chat_id, text="Usage: /admin reinit [all|carma|msgcount|unames|chatadmins|subscribed]",
+					reply_to_message_id=update.message.message_id)
+			bot.sendMessage(chat_id, text="{} done".format(cmd + args[0]), reply_to_message_id=update.message.message_id)
 			return
 		elif cmd == 'givecarma':
 			try:
@@ -231,6 +250,7 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=upda
 				bot.sendMessage(chat_id, text="Usage: /admin givecarma <to_id> <amount>")
 				return
 			fromid = 0
+			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 		elif cmd == 'setcarma':
 			try:
 				toid = int(args[0])
@@ -239,6 +259,7 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=upda
 				bot.sendMessage(chat_id, text="Usage: /admin setcarma <to_id> <amount>")
 				return
 			carma[chat_id][toid] = amount
+			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 			return
 		elif cmd == 'takecarma':
 			try:
@@ -248,6 +269,7 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=upda
 				bot.sendMessage(chat_id, text="Usage: /admin takecarma <to_id> <amount>")
 				return
 			toid = 0
+			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 
 		payment(chat_id, fromid, toid, amount)
 		sendnotif(bot, fromid, toid, amount)
@@ -487,6 +509,8 @@ if path.exists('msg.pkl'):
 		unames = pickle.load(f)
 	with open('subs.pkl', 'rb') as f:
 		subscribed = pickle.load(f)
+	with open('admins.pkl', 'rb') as f:
+		chatadmins = pickle.load(f)
 	logging.info("data loaded.")
 
 updater.start_polling()
