@@ -409,7 +409,7 @@ def statusupdate(bot, update):
 	if not bool(update.message.new_chat_member):
 		return
 	if update.message.new_chat_member.id == botid:
-		start(bot, update)
+		start(bot, update, [])
 
 def subscr(bot, update):
 	chat_id = update.message.chat_id
