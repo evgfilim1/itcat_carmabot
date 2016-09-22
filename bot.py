@@ -17,19 +17,26 @@ help_text = """Привет. Я бот, который считает карму
 /topstat или /top — топ пользователей по карме
 /msgtopstat или /mtop — топ пользователей по сообщениям
 /pay — перевести карму
-*/ask — попросить карму
+/ask — попросить карму
 /thanks или /tx — +1 к карме другого человека
 /sub или /subscr — подписаться на изменения кармы (сообщения приходят в ЛС)
 Для отписки — /unsub или /unsubscr
 
-*Каждый день самым активным пользователям чата — призы!
+Каждый день самым активным пользователям чата — призы!
 За 1 место — +10 к карме
 За 2 место — +5 к карме
 За 3 место — +2 к карме
 _____
+Ограничение всех трансферов: [0..1023]
 Инфо о боте —> /about
-Строки, начинающиеся с '*' обозначают ещё не протестированную возможность
+Команды администрирования —> /admin
 Вскоре будут доступны некоторые плюшки с тратой кармы, а пока, зарабатывайте её!"""
+
+hid_text = """Команды, не относящиеся непосредственно к боту:
+/uid — узнать UID и GID
+/whois — узнать, кто владелец определённого ID
+/pidor — feature by @Racc_oon
+"""
 
 about_text = """Я бот, который считает карму в чате :)
 По всем вопросам, обращайся к моему создателю —> @evgfilim1
@@ -173,6 +180,9 @@ def Help(bot, update):
 
 def about(bot, update):
 	bot.sendMessage(update.message.chat_id, text=about_text)
+
+def hid(bot, update):
+	bot.sendMessage(update.message.chat_id, text=hid_text)
 
 def button(bot, update):
 	query = update.callback_query
@@ -407,8 +417,7 @@ def subscr(bot, update):
 	if not from_user.id in subscribed:
 		subscribed.append(from_user.id)
 		bot.sendMessage(chat_id, text="""Успешно подписаны на обновления кармы.
-			!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", 
-			reply_to_message_id=update.message.message_id)
+!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", reply_to_message_id=update.message.message_id)
 	else:
 		bot.sendMessage(chat_id, text="Вы уже подписаны на обновления.", reply_to_message_id=update.message.message_id)
 
@@ -460,6 +469,7 @@ dp = updater.dispatcher
 dp.add_handler(CommandHandler('start', start, pass_args=True))
 dp.add_handler(CommandHandler('help', Help))
 dp.add_handler(CommandHandler('about', about))
+dp.add_handler(CommandHandler('hid', hid))
 ##########
 dp.add_handler(CommandHandler('uid', uid))
 ##########
