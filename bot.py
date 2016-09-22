@@ -47,7 +47,7 @@ features_text = """Фичи за карму:
 defaultAdminCarma = 2500
 defaultUserCarma = -20
 addViaThanks = 1
-transferLimit = 256
+transferLimit = 1024
 
 filters = [Filters.audio,
 	Filters.contact,
