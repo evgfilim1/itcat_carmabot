@@ -17,10 +17,10 @@ help_text = """Привет. Я бот, который считает карму
 /topstat или /top — топ пользователей по карме
 /msgtopstat или /mtop — топ пользователей по сообщениям
 /pay — перевести карму
--/ask — попросить карму
+*/ask — попросить карму
 /thanks или /tx — +1 к карме другого человека
-*/sub или /subscr — подписаться на изменения кармы (сообщения приходят в ЛС)
-*Для отписки — /unsub или /unsubscr
+/sub или /subscr — подписаться на изменения кармы (сообщения приходят в ЛС)
+Для отписки — /unsub или /unsubscr
 
 *Каждый день самым активным пользователям чата — призы!
 За 1 место — +10 к карме
@@ -28,7 +28,6 @@ help_text = """Привет. Я бот, который считает карму
 За 3 место — +2 к карме
 _____
 Инфо о боте —> /about
-Строки, начинающиеся с '-' обозначают ещё не реализованную возможность
 Строки, начинающиеся с '*' обозначают ещё не протестированную возможность
 Вскоре будут доступны некоторые плюшки с тратой кармы, а пока, зарабатывайте её!"""
 
@@ -113,12 +112,6 @@ def onStuff(bot, update):
 
 def jobdaily(bot, job):
 	global msgcount
-	# \/ \/ \/ SHITCODE \/ \/ \/
-	# items = list(msgcount.items())
-	# for c in items:
-	# 	chat = c[1]
-	# 	cid = c[0]
-	# /\ /\ /\ SHITCODE /\ /\ /\
 	for cid in msgcount:
 		chat = msgcount[cid]
 		sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
@@ -190,6 +183,29 @@ def Help(bot, update):
 def about(bot, update):
 	bot.sendMessage(update.message.chat_id, text=about_text)
 
+def button(bot, update):
+	query = update.callback_query
+	data = query.data.split(':')
+	chat_id = query.message.chat_id
+	# msg_id = query.message.message_id
+	inlmsgid = query.id
+	qfrom = query.from_user
+
+	if data[0] == 'asked':
+		if data[2] == 'stop':
+			if int(data[1]) == qfrom:
+				bot.editMessageText(inline_message_id=inlmsg_id, reply_markup=InlineKeyboardMarkup([]),
+					text="Сбор кармы остановлен владельцем.")
+			else:
+				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Вы не владелец этого сбора кармы")
+		else:
+			if payment(chat_id, qfrom, int(data[1]), int(data[2]), True):
+				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Успешно переведено {} кармы".format(data[2]))
+			else:
+				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Недостаточно кармы")
+	else:
+		return
+
 def mystat(bot, update):
 	msg = update.message
 	if bool(msg.reply_to_message):
@@ -230,6 +246,32 @@ def mtopstat(bot, update):
 			break
 		msg += "{}: {} сообщений, {} кармы\n".format(un, sorttop[i][1], carma[chat_id].get(sorttop[i][0], defaultUserCarma))
 	bot.sendMessage(chat_id, text=msg)
+
+def ask(bot, update, args):
+	chat_id = update.message.chat_id
+	fail = False
+	try:
+		arg = int(args[0])
+	except:
+		fail = True
+
+	if fail:
+		bot.sendMessage(chat_id, text="Использование: /ask <сумма>", reply_to_message_id=update.message.message_id)
+		return
+	else:
+		toid = update.message.from_user.id
+		if arg < 0:
+			arg = -arg
+		arg = int(arg % transferLimit)
+
+	templ = 'asked:{}:{}'
+
+	kbrd = [[InlineKeyboardButton("Подарить", callback_data=templ.format(toid, arg))], 
+			[InlineKeyboardButton("Закончить сбор", callback_data=templ.format(toid, 'stop'))]]
+	mrkup = InlineKeyboardMarkup(kbrd)
+
+	bot.sendMessage(chat_id, text="{} просит {} кармы.".format(getuname(update.message.from_user), arg), 
+		reply_markup=mrkup)
 
 def pay(bot, update, args):
 	fromid = update.message.from_user.id
@@ -344,6 +386,8 @@ dp.add_handler(CommandHandler('top', topstat))
 dp.add_handler(CommandHandler('msgtopstat', mtopstat))
 dp.add_handler(CommandHandler('mtop', mtopstat))
 ##########
+dp.add_handler(CommandHandler('ask', ask, pass_args=True))
+##########
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 ##########
 dp.add_handler(CommandHandler('thanks', thnx))
@@ -359,6 +403,7 @@ dp.add_handler(CommandHandler('tipidor', pidr))
 dp.add_handler(CommandHandler('pidor', pidr))
 dp.add_handler(CommandHandler('pidr', pidr))
 ##########
+dp.add_handler(CallbackQueryHandler(button))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
 ##########
 dp.add_handler(MessageHandler([], onStuff))
