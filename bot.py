@@ -95,12 +95,17 @@ def payment(chat_id, from_id, to_id, amount, check=False):
 
 def sendnotif(bot, from_id, to_id, amount):
 	if from_id != 0 and from_id in subscribed:
-		bot.sendMessage(from_id, text="У вас было отнято {} кармы пользователем {}".format(amount, 
-			unames.get(from_id, 'Unknown user {}'.format(from_id))))
+		capt = ''
+		if to_id != 0:
+			capt = 'для пользователя {}'.format(unames.get(to_id, 'Unknown user {}'.format(to_id)))
+		bot.sendMessage(from_id, text="У вас было отнято {} кармы {}".format(amount, capt))
+		del capt
 
 	if to_id != 0 and to_id in subscribed:
-		bot.sendMessage(to_id, text="Вам было добавлено {} кармы пользователем {}".format(amount, 
-			unames.get(to_id, 'Unknown user {}'.format(to_id))))
+		capt = ''
+		if from_id != 0:
+			capt = 'пользователем {}'.format(unames.get(from_id, 'Unknown user {}'.format(from_id)))
+		bot.sendMessage(to_id, text="Вам было добавлено {} кармы {}".format(amount, capt))
 
 def getuname(user):
 	if bool(user.username):
