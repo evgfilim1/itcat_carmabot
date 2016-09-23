@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from telegram import *
 from telegram.ext import *
-from bottoken import testTOKEN, creatorid
+import bottoken.testTOKEN as TOKEN
+from bottoken import creatorid
 from os import path
 import logging, time, math, pickle
 #import json
@@ -469,8 +470,8 @@ def pidr(bot, update):
 	onStuff(bot, update)
 	payment(update.message.chat_id, update.message.from_user.id, 0, 100)
 
-updater = Updater(testTOKEN)
-del testTOKEN
+updater = Updater(TOKEN)
+del TOKEN
 
 jobs = updater.job_queue
 
