@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from telegram import *
 from telegram.ext import *
-import bottoken.testTOKEN as TOKEN
+from bottoken import testTOKEN as TOKEN
 from bottoken import creatorid
 from os import path
 import logging, time, math, pickle
