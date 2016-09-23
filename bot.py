@@ -51,7 +51,7 @@ features_text = """Фичи за карму:
 Устроить раздачу - 100 - /feature 4
 Уметь отнимать карму - 1000 - /feature 5"""
 
-defaultAdminCarma = 2500
+#defaultAdminCarma = -20
 defaultUserCarma = -20
 addViaThanks = 1
 transferLimit = 1024
@@ -173,8 +173,8 @@ def start(bot, update, args):
 	#bank[chat_id] = 0
 	admins = bot.getChatAdministrators(chat_id)
 	for admin in admins:
-		carma[chat_id].update({admin.user.id: defaultAdminCarma})
-		msgcount[chat_id].update({admin.user.id: 0})
+		#carma[chat_id].update({admin.user.id: defaultAdminCarma})
+		#msgcount[chat_id].update({admin.user.id: 0})
 		unames.update({admin.user.id: getuname(admin.user)})
 		chatadmins[chat_id].append(admin.user.id)
 
