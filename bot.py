@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from telegram import *
 from telegram.ext import *
-from bottoken import TOKEN, creatorid
+from bottoken import testTOKEN, creatorid
 from os import path
 import logging, time, math, pickle
 #import json
@@ -399,19 +399,19 @@ def pay(bot, update, args):
 def thnx(bot, update):
 	chat_id = update.message.chat_id
 	if not bool(update.message.reply_to_message):
-#		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
-#			reply_to_message_id=update.message.message_id)
+		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
+			reply_to_message_id=update.message.message_id)
 		return
 	u = update.message.reply_to_message.from_user
 	if u.id == update.message.from_user.id:
-#		bot.sendMessage(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
+		bot.sendMessage(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
 		return
 	elif u.id == botid:
 		u.id = creatorid
 	payment(chat_id, 0, u.id, 1)
 	sendnotif(bot, 0, u.id, 1)
-#	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)),
-#		reply_to_message_id=update.message.message_id)
+	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)),
+		reply_to_message_id=update.message.message_id)
 
 def statusupdate(bot, update):
 	if not bool(update.message.new_chat_member):
@@ -469,8 +469,8 @@ def pidr(bot, update):
 	onStuff(bot, update)
 	payment(update.message.chat_id, update.message.from_user.id, 0, 100)
 
-updater = Updater(TOKEN)
-del TOKEN
+updater = Updater(testTOKEN)
+del testTOKEN
 
 jobs = updater.job_queue
 
