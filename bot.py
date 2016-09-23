@@ -49,7 +49,8 @@ features_text = """Фичи за карму:
 Передать всем привет - 1 - /feature 2
 Получить подарок на праздник - (-2) - /feature 3
 Устроить раздачу - 100 - /feature 4
-Уметь отнимать карму - 1000 - /feature 5"""
+Уметь отнимать карму - 1000 - /feature 5
+Быть кармодрочером - 500 - /feature 6"""
 
 #defaultAdminCarma = -20
 defaultUserCarma = -20
@@ -170,7 +171,6 @@ def start(bot, update, args):
 	carma[chat_id] = {}
 	msgcount[chat_id] = {}
 	chatadmins[chat_id] = []
-	#bank[chat_id] = 0
 	admins = bot.getChatAdministrators(chat_id)
 	for admin in admins:
 		#carma[chat_id].update({admin.user.id: defaultAdminCarma})
@@ -236,6 +236,9 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=upda
 			jobdaily(None, None)
 			bot.sendMessage(chat_id, text="jobdaily done",  reply_to_message_id=update.message.message_id)
 			return
+#		elif cmd == 'dbgvar':
+#			bot.sendMessage(chat_id, text='{}'.format(eval(args[0])))
+#			return
 		elif cmd == 'reinit':
 			if args[0] == 'all':
 				start(bot, update, ['clear'])
@@ -396,19 +399,19 @@ def pay(bot, update, args):
 def thnx(bot, update):
 	chat_id = update.message.chat_id
 	if not bool(update.message.reply_to_message):
-		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
-			reply_to_message_id=update.message.message_id)
+#		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
+#			reply_to_message_id=update.message.message_id)
 		return
 	u = update.message.reply_to_message.from_user
 	if u.id == update.message.from_user.id:
-		bot.sendMessage(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
+#		bot.sendMessage(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
 		return
 	elif u.id == botid:
 		u.id = creatorid
 	payment(chat_id, 0, u.id, 1)
 	sendnotif(bot, 0, u.id, 1)
-	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)),
-		reply_to_message_id=update.message.message_id)
+#	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)),
+#		reply_to_message_id=update.message.message_id)
 
 def statusupdate(bot, update):
 	if not bool(update.message.new_chat_member):
@@ -420,6 +423,12 @@ def subscr(bot, update):
 	chat_id = update.message.chat_id
 	from_user = update.message.from_user
 	if not from_user.id in subscribed:
+		try:
+			bot.sendMessage(from_user.id, text='Подписка оформлена')
+		except:
+			bot.sendMessage(chat_id, text="Невозможно подписаться на обновления. Напишите в ЛС боту",
+			reply_to_message_id=update.message.message_id)
+			return
 		subscribed.append(from_user.id)
 		bot.sendMessage(chat_id, text="""Успешно подписаны на обновления кармы.
 !Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", reply_to_message_id=update.message.message_id)
@@ -495,6 +504,7 @@ dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 ##########
 dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
+dp.add_handler(RegexHandler('^\+{2,}(.+)?', thnx))
 ##########
 dp.add_handler(CommandHandler('subscr', subscr))
 dp.add_handler(CommandHandler('sub', subscr))
