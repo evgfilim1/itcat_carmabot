@@ -1,0 +1,6 @@
+APScheduler==3.0.0
+pyTelegramBotAPI==2.1.7
+pytz==2016.6.1
+requests==2.11.1
+six==1.10.0
+tzlocal==1.2.2

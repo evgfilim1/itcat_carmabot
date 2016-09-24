@@ -2,14 +2,18 @@
 # from telegram import *
 # from telegram.ext import *
 import telebot
+from telebot import types
 from bottoken import TOKEN, creatorid
 from os import path
 import logging, time, math, cpickle
+from apscheduler.schedulers.blocking import BackgroundScheduler
 #import json
 
 TIME_FORMAT = "%d %b, %H:%M:%S"
 logging.basicConfig(format = '%(levelname)-8s [%(asctime)s] %(message)s', level = logging.INFO,
     datefmt = TIME_FORMAT)
+
+bot = telebot.TeleBot(TOKEN)
 
 botid = int(TOKEN[:TOKEN.index(':')])
 
@@ -37,8 +41,8 @@ _____
 hid_text = """Команды, не относящиеся непосредственно к боту:
 /uid — узнать UID и GID
 /whois — узнать, кто владелец определённого ID
-/pidor — feature by @mrsteyk (modified original concept /crack)
-/duck — feature by @mrsteyk
+/pidor — feature by @mrsteyk (modified original concept /crack) WIP
+/duck — feature by @mrsteyk WIP
 """
 
 about_text = """Я бот, который считает ₫ в чате :)
@@ -60,19 +64,6 @@ defaultUserCarma = 9001 # ITS OVER 9K!!! Dragon Ball Z reference
 addViaThanks = 1006 # why its even here?
 transferLimit = 1024
 
-# filters = [Filters.audio,
-#   Filters.contact,
-#   Filters.command,
-#   Filters.document,
-#   Filters.location,
-#   Filters.photo,
-#   Filters.status_update,
-#   Filters.sticker,
-#   Filters.text,
-#   Filters.venue,
-#   Filters.video,
-#   Filters.voice]
-
 carma = {}
 msgcount = {}
 unames = {}
@@ -84,8 +75,7 @@ subscribed = []
 
 def error(bot, update, error):
     logging.warning('Update "{0}" caused error "{1}"'.format(update, error)) # dat line fucks up my sublime text 3
-    bot.send_message(update.message.chat_id, text="Произошла ошибка при обработке этого сообщения (возможно юзверь не написал боту в личку, но подписался на обновления)", 
-        reply_to_message_id=update.message.message_id)
+    bot.reply_to(message, "Произошла ошибка при обработке этого сообщения (возможно юзверь не написал боту в личку, но подписался на обновления)")
 
 def payment(chat_id, from_id, to_id, amount, check=False): # payment(chat_id, from_id, to_id, amount, check=False) wtf is check?
     global carma
@@ -99,19 +89,20 @@ def payment(chat_id, from_id, to_id, amount, check=False): # payment(chat_id, fr
 
     return True
 
-def sendnotif(bot, from_id, to_id, amount): # #ZebestUseOfMultiples! 
+def sendnotif(bot, from_id, to_id, amount):
     if from_id != 0 and from_id in subscribed:
         capt = ''
         if to_id != 0:
             capt = 'для пользователя {}'.format(unames.get(to_id, 'Неизвестный юзверь {}'.format(to_id)))
-        bot.send_message(from_id, text="У вас было отнято {} ₫ {}".format(amount, capt))
+        bot.send_message(from_id, "У вас было отнято {} ₫ {}".format(amount, capt))
         del capt
 
     if to_id != 0 and to_id in subscribed:
         capt = ''
         if from_id != 0:
             capt = 'пользователем {}'.format(unames.get(from_id, 'Неизвестный юзверь {}'.format(from_id)))
-        bot.send_message(to_id, text="Вам было добавлено {} ₫ {}".format(amount, capt))
+        if not amount == 1: # cuz zaebalo
+            bot.send_message(to_id, "Вам было добавлено {} ₫ {}".format(amount, capt))
 
 def getuname(user):
     if bool(user.username):
@@ -119,18 +110,8 @@ def getuname(user):
     else:
         return user.first_name
 
-def onStuff(bot, update):
-    global msgcount, unames
-    uid = update.message.from_user.id
-    gid = update.message.chat_id
-    if uid != gid:
-        msgcount[gid][uid] = msgcount[gid].get(uid, 0) + 1
-    if not uid in carma[gid]:
-        carma[gid][uid] = defaultUserCarma
-    unames.update({uid: getuname(update.message.from_user)})
 
-
-def jobdaily(bot, job): # why args???
+def jobdaily():
     global msgcount
     for cid in msgcount:
         chat = msgcount[cid]
@@ -147,7 +128,8 @@ def jobdaily(bot, job): # why args???
     for chat in msgcount:
         msgcount[chat].clear()
 
-def jobhourly(bot, job): # why args???x2
+
+def jobhourly():
     with open('msg.pkl', 'wb') as f:
         cpickle.dump(msgcount, f, 2)
     with open('carma.pkl', 'wb') as f:
@@ -189,26 +171,30 @@ def start(message):
         chatadmins[chat_id].append(admin.user.id)
 
     bot.send_message(chat_id, "Чат инициализирован. /help")
+    essential_crap(message)
 
 @bot.message_handler(commands=['help'])
 def Help(message):
+    essential_crap(message)
     bot.send_message(message.chat_id, help_text)
 
 @bot.message_handler(commands=['about'])
 def about(message):
+    essential_crap(message)
     bot.send_message(message.chat_id, about_text)
 
 @bot.message_handler(commands=['hid'])
 def hid(message):
+    essential_crap(message)
     bot.send_message(message.chat_id, hid_text)
 
-def button(bot, update):
-    query = update.callback_query
-    data = query.data.split(':')
-    chat_id = query.message.chat_id
-    msg_id = query.message.message_id
-    inlmsgid = query.id
-    qfrom = query.from_user.id
+@bot.callback_query_handler(func=lambda call: True)
+def button(call):
+    data = call.data.split(':')
+    chat_id = call.message.chat_id
+    msg_id = call.message.message_id
+    inlmsgid = call.id
+    qfrom = call.from_user.id
 
     if data[0] == 'asked':
         if data[2] == 'stop':
@@ -227,6 +213,7 @@ def button(bot, update):
 
 @bot.message_handler(commands=['admin'])
 def adminpanel(message):
+    essential_crap(message)
     global carma, msgcount, unames, chatadmins, subscribed
     args = string(message.text).split()
     args.pop(0) # ?maybe? can be improved
@@ -308,6 +295,7 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""")
 
 @bot.message_handler(commands=['st', 'mystat'])
 def mystat(message):
+    essential_crap(message)
     if bool(message.reply_to_message):
         uu = message.reply_to_message.from_user
         uid = uu.id
@@ -322,6 +310,7 @@ def mystat(message):
 
 @bot.message_handler(commands=['top', 'topstat'])
 def topstat(message):
+    essential_crap(message)
     chat_id = message.chat_id
     chat = carma[chat_id]
     sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
@@ -336,6 +325,7 @@ def topstat(message):
 
 @bot.message_handler(commands=['mtop' , 'msgtopstat'])
 def mtopstat(message):
+    essential_crap(message)
     chat_id = message.chat_id
     chat = msgcount[chat_id]
     sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
@@ -349,11 +339,12 @@ def mtopstat(message):
     bot.send_message(chat_id, msg)
 
 @bot.message_handler(commands=['ask'])
-def ask(message): # not done
+def ask(message):
+    essential_crap(message)
     args = message.text
     args = args.split()
     args.pop(0)
-    chat_id = update.message.chat_id
+    chat_id = message.chat_id
     fail = False
     try:
         arg = int(args[0])
@@ -371,9 +362,8 @@ def ask(message): # not done
 
     templ = 'asked:{}:{}'
 
-    kbrd = [[InlineKeyboardButton("Подарить", callback_data=templ.format(toid, arg))], 
-            [InlineKeyboardButton("Закончить сбор", callback_data=templ.format(toid, 'stop'))]]
-    mrkup = InlineKeyboardMarkup(kbrd)
+    mrkup = InlineKeyboardMarkup()
+    mrkup.add(InlineKeyboardButton("Подарить", callback_data=templ.format(toid, arg)), InlineKeyboardButton("Закончить сбор", callback_data=templ.format(toid, 'stop')))
 
     captstr = ''
     if len(args) > 1:
@@ -383,24 +373,28 @@ def ask(message): # not done
 
     bot.send_message(chat_id, "{} просит {} ₫.{}".format(getuname(update.message.from_user), arg, captstr), reply_markup=mrkup)
 
-def pay(bot, update, args):
-    fromid = update.message.from_user.id
-    chat_id = update.message.chat_id
+@bot.message_handler(commands=['pay'])
+def pay(message):
+    essential_crap(message)
+    args = message.text
+    args = args.split()
+    args.pop(0)
+    fromid = message.from_user.id
+    chat_id = message.chat_id
     fail = False
     try:
         arg = int(args[0])
     except:
         fail = True
 
-    if not bool(update.message.reply_to_message):
+    if not bool(message.reply_to_message):
         fail = True
 
     if fail:
-        bot.send_message(chat_id, text="Использование: (в ответ на сообщение получателя) /pay <сумма>", 
-            reply_to_message_id=update.message.message_id)
+        bot.reply_to(message, "Использование: (в ответ на сообщение получателя) /pay <сумма>")
         return
     else:
-        toid = update.message.reply_to_message.from_user.id
+        toid = message.reply_to_message.from_user.id
         if arg < 0:
             arg = -arg
         arg = int(arg % transferLimit)
@@ -409,35 +403,33 @@ def pay(bot, update, args):
         toid = creatorid
 
     if not payment(chat_id, fromid, toid, arg, True):
-        bot.send_message(chat_id, text="Недостаточно ₫!", reply_to_message_id=update.message.message_id)
+        bot.reply_to(message, "Недостаточно ₫!")
     else:
-        bot.send_message(chat_id, text="{} ₫ переведено.".format(arg), reply_to_message_id=update.message.message_id)
+        bot.reply_to(message, "{} ₫ переведено.".format(arg), reply_to_message_id=update.message.message_id)
     sendnotif(bot, fromid, toid, arg)
-        
-def thnx(bot, update):
-    chat_id = update.message.chat_id
+
+@bot.message_handler(regexp='^\+{2,}(.+)?')
+def thnx(message):
+    essential_crap(message)
+    chat_id = message.chat_id
     if not bool(update.message.reply_to_message):
 #       bot.send_message(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
 #           reply_to_message_id=update.message.message_id)
         return
-    u = update.message.reply_to_message.from_user
-    if u.id == update.message.from_user.id:
+    u = message.reply_to_message.from_user
+    if u.id == message.from_user.id:
 #       bot.send_message(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
         return
     elif u.id == botid:
         u.id = creatorid
     payment(chat_id, 0, u.id, 1)
-    sendnotif(bot, 0, u.id, 1)
+    # sendnotif(bot, 0, u.id, 1) cuz zaebalo
 #   bot.send_message(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)),
 #       reply_to_message_id=update.message.message_id)
 
-def statusupdate(bot, update):
-    if not bool(update.message.new_chat_member):
-        return
-    if update.message.new_chat_member.id == botid:
-        start(bot, update, [])
-
+@bot.message_handler(commands=['sub', 'subscr'])
 def subscr(bot, update):
+    essential_crap(message)
     chat_id = update.message.chat_id
     from_user = update.message.from_user
     if not from_user.id in subscribed:
@@ -453,7 +445,9 @@ def subscr(bot, update):
     else:
         bot.send_message(chat_id, text="Вы уже подписаны на обновления.", reply_to_message_id=update.message.message_id)
 
+@bot.message_handler(commands=['unsub', 'unsubscr'])
 def unsubscr(bot, update):
+    essential_crap(message)
     chat_id = update.message.chat_id
     from_user = update.message.from_user
     if from_user.id in subscribed:
@@ -465,6 +459,7 @@ def unsubscr(bot, update):
 
 @bot.message_handler(commands=['uid'])
 def uid(message):
+    essential_crap(message)
     if bool(message.reply_to_message):
         uid = message.reply_to_message.from_user.id
     else:
@@ -473,6 +468,7 @@ def uid(message):
 
 @bot.message_handler(commands=['whois'])
 def whois(message):
+    essential_crap(message)
     try:
         whoid = int(string(message).split()[1])
     except:
@@ -487,73 +483,39 @@ def pidr(message):
     # onStuff(bot, update)
     # payment(update.message.chat_id, update.message.from_user.id, 0, 100)
     # WIP
+    pass
 
-#updater = Updater(TOKEN) No Real Need Since there is no way to obtain a var value
-#del TOKEN
+@bot.message_handler(func=lambda msg: True)
+def essential_crap(message):
+    global msgcount, unames
+    if not bool(message.new_chat_member):
+        uid = message.from_user.id
+        gid = message.chat_id
+        if uid != gid:
+            msgcount[gid][uid] = msgcount[gid].get(uid, 0) + 1
+        if not uid in carma[gid]:
+            carma[gid][uid] = defaultUserCarma
+        unames.update({uid: getuname(message.from_user)})
+    if update.message.new_chat_member.id == botid:
+        start(bot, update, [])
 
-# jobs = updater.job_queue WIP
 
-# jobs.put(Job(jobhourly, 3600.0))
-# jobs.put(Job(jobdaily, 86400.0))
+if __name__ == "__main__":
+    if path.exists('msg.pkl'):
+        with open('msg.pkl', 'rb') as f:
+            msgcount = cpickle.load(f)
+        with open('carma.pkl', 'rb') as f:
+            carma = cpickle.load(f)
+        with open('unames.pkl', 'rb') as f:
+            unames = cpickle.load(f)
+        with open('subs.pkl', 'rb') as f:
+            subscribed = cpickle.load(f)
+        with open('admins.pkl', 'rb') as f:
+            chatadmins = cpickle.load(f)
+        logging.info("data loaded.")
 
-# dp = updater.dispatcher
-
-##########
-# dp.add_handler(CommandHandler('start', start, pass_args=True))
-# dp.add_handler(CommandHandler('help', Help)) done
-# dp.add_handler(CommandHandler('about', about)) done
-# dp.add_handler(CommandHandler('hid', hid)) done
-##########
-# dp.add_handler(CommandHandler('uid', uid)) done 
-##########
-# dp.add_handler(CommandHandler('whois', whois, pass_args=True)) done
-##########
-# dp.add_handler(CommandHandler('mystat', mystat))
-# dp.add_handler(CommandHandler('st', mystat))
-##########
-# dp.add_handler(CommandHandler('topstat', topstat))
-# dp.add_handler(CommandHandler('top', topstat))
-########## done
-# dp.add_handler(CommandHandler('msgtopstat', mtopstat))
-# dp.add_handler(CommandHandler('mtop', mtopstat))
-##########
-dp.add_handler(CommandHandler('ask', ask, pass_args=True))
-##########
-dp.add_handler(CommandHandler('pay', pay, pass_args=True))
-##########
-dp.add_handler(CommandHandler('thanks', thnx))
-dp.add_handler(CommandHandler('tx', thnx))
-dp.add_handler(RegexHandler('^\+{2,}(.+)?', thnx))
-##########
-dp.add_handler(CommandHandler('subscr', subscr))
-dp.add_handler(CommandHandler('sub', subscr))
-##########
-dp.add_handler(CommandHandler('unsubscr', unsubscr))
-dp.add_handler(CommandHandler('unsub', unsubscr))
-##########
-# dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True)) done
-##########
-dp.add_handler(CallbackQueryHandler(button))
-dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
-##########
-dp.add_handler(MessageHandler([], onStuff))
-##########
-dp.add_error_handler(error)
-
-if path.exists('msg.pkl'):
-    with open('msg.pkl', 'rb') as f:
-        msgcount = cpickle.load(f)
-    with open('carma.pkl', 'rb') as f:
-        carma = cpickle.load(f)
-    with open('unames.pkl', 'rb') as f:
-        unames = cpickle.load(f)
-    with open('subs.pkl', 'rb') as f:
-        subscribed = cpickle.load(f)
-    with open('admins.pkl', 'rb') as f:
-        chatadmins = cpickle.load(f)
-    logging.info("data loaded.")
-
-updater.start_polling()
-updater.idle()
-
-jobhourly(None, None)
+    scheduler = BackgroundScheduler()
+    jobhourly()
+    scheduler.add_job(jobhourly, 'interval', minutes=60)
+    scheduler.add_job(jobdaily, 'interval', hours=24)
+    bot.polling(none_stop=True)
