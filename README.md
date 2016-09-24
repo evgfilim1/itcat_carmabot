@@ -2,9 +2,9 @@
 
 Install guide:
 ```sh
-$ sudo pip install python-telegram-bot
-$ echo 'TOKEN="Here goes your bot API token"' > bottoken.py
-$ echo 'creatorid=Here goes your Telegram user ID' >> bottoken.py
+$ sudo pip3 install python-telegram-bot
+$ echo 'TOKEN = "Here goes your bot API token"' > bottoken.py
+$ echo 'creatorid = user_id_as_a_number' >> bottoken.py
 ```
 
 Running bot:
