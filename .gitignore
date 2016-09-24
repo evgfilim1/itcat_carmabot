@@ -1,2 +1,4 @@
 bottoken.py
 /.venv
+/*.pkl
+/__pycache__

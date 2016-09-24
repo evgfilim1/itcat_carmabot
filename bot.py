@@ -5,8 +5,8 @@ import telebot
 from telebot import types
 from bottoken import TOKEN, creatorid
 from os import path
-import logging, time, math, cpickle
-from apscheduler.schedulers.blocking import BackgroundScheduler
+import logging, time, math, pickle # now pickle is _pickle and i think its deprecated
+from apscheduler.schedulers.background import BackgroundScheduler
 #import json
 
 TIME_FORMAT = "%d %b, %H:%M:%S"
@@ -79,13 +79,13 @@ def error(bot, update, error):
 
 def payment(chat_id, from_id, to_id, amount, check=False): # payment(chat_id, from_id, to_id, amount, check=False) wtf is check?
     global carma
-    fromcarma = carma[chat_id].get(from_id, defaultUserCarma)
+    fromcarma = carma[chat_id].setdefault(from_id, defaultUserCarma)
     if check and amount > fromcarma: # прям сука очень хорошее сравнение дан бай евгфилим1
         return False
     if from_id != 0:
         carma[chat_id][from_id] = fromcarma - amount
     if to_id != 0:
-        carma[chat_id][to_id] = carma[chat_id].get(to_id, defaultUserCarma) + amount
+        carma[chat_id][to_id] = carma[chat_id].setdefault(to_id, defaultUserCarma) + amount
 
     return True
 
@@ -122,7 +122,7 @@ def jobdaily():
                 usrid = sorttop[u][0]
             except IndexError:
                 break
-            carma[cid][usrid] = carma[cid].get(usrid, 0) + bonus
+            carma[cid][usrid] = carma[cid].setdefault(usrid, 0) + bonus
             bonus = bonus // 2
 
     for chat in msgcount:
@@ -131,15 +131,15 @@ def jobdaily():
 
 def jobhourly():
     with open('msg.pkl', 'wb') as f:
-        cpickle.dump(msgcount, f, 2)
+        pickle.dump(msgcount, f, 2)
     with open('carma.pkl', 'wb') as f:
-        cpickle.dump(carma, f, 2)
+        pickle.dump(carma, f, 2)
     with open('unames.pkl', 'wb') as f:
-        cpickle.dump(unames, f, 2)
+        pickle.dump(unames, f, 2)
     with open('subs.pkl', 'wb') as f:
-        cpickle.dump(subscribed, f, 2)
+        pickle.dump(subscribed, f, 2)
     with open('admins.pkl', 'wb') as f:
-        cpickle.dump(chatadmins, f, 2)
+        pickle.dump(chatadmins, f, 2)
     logging.info("data saved.")
 
 # --- Not commands end? ---
@@ -147,8 +147,9 @@ def jobhourly():
 @bot.message_handler(commands=['start'])
 def start(message):
     global carma, msgcount, chatadmins, unames
-    chat_id = message.chat_id
-    args = string(message.text).split()
+    chat_id = message.chat.id
+    args = message.text
+    args = args.split()
     args.pop(0)
     if chat_id == message.from_user.id:
         bot.send_message(chat_id, "Готово, теперь вы можете получать уведомления.")
@@ -163,7 +164,7 @@ def start(message):
     carma[chat_id] = {}
     msgcount[chat_id] = {}
     chatadmins[chat_id] = []
-    admins = bot.getChatAdministrators(chat_id)
+    admins = bot.get_chat_administrators(chat_id)
     for admin in admins:
         #carma[chat_id].update({admin.user.id: defaultAdminCarma})
         #msgcount[chat_id].update({admin.user.id: 0})
@@ -176,35 +177,36 @@ def start(message):
 @bot.message_handler(commands=['help'])
 def Help(message):
     essential_crap(message)
-    bot.send_message(message.chat_id, help_text)
+    bot.send_message(message.chat.id, help_text)
 
 @bot.message_handler(commands=['about'])
 def about(message):
     essential_crap(message)
-    bot.send_message(message.chat_id, about_text)
+    bot.send_message(message.chat.id, about_text)
 
 @bot.message_handler(commands=['hid'])
 def hid(message):
     essential_crap(message)
-    bot.send_message(message.chat_id, hid_text)
+    bot.send_message(message.chat.id, hid_text)
 
 @bot.callback_query_handler(func=lambda call: True)
 def button(call):
     data = call.data.split(':')
-    chat_id = call.message.chat_id
+    chat_id = call.message.chat.id
     msg_id = call.message.message_id
     inlmsgid = call.id
     qfrom = call.from_user.id
 
     if data[0] == 'asked':
         if data[2] == 'stop':
-            if int(data[1]) == qfrom:
-                bot.edit_message_text("Сбор ₫ остановлен владельцем.", chat_id=chat_id, message_id=msg_id, reply_markup=InlineKeyboardMarkup([]))
+            if int(data[1]) == qfrom or chatadmins[call.message.chat.id].count(qfrom):
+                bot.edit_message_text("Сбор ₫ остановлен владельцем.", chat_id=chat_id, message_id=msg_id, reply_markup=types.InlineKeyboardMarkup([]))
             else:
                 bot.answer_callback_query(inlmsgid, text="Вы не владелец этого сбора ₫")
         else:
             if payment(chat_id, qfrom, int(data[1]), int(data[2]), True):
                 bot.answer_callback_query(callback_query_id=inlmsgid, text="Успешно переведено {} ₫".format(data[2]))
+                bot.edit_message_text("Сбор ₫ остановлен, т.к. {} подарил карму.".format(call.from_user.first_name), chat_id=chat_id, message_id=msg_id, reply_markup=types.InlineKeyboardMarkup([]))
                 sendnotif(bot, qfrom, int(data[1]), int(data[2]))
             else:
                 bot.answer_callback_query(inlmsgid, text="Недостаточно ₫")
@@ -217,7 +219,7 @@ def adminpanel(message):
     global carma, msgcount, unames, chatadmins, subscribed
     args = string(message.text).split()
     args.pop(0) # ?maybe? can be improved
-    chat_id = message.chat_id
+    chat_id = message.chat.id
     from_id = message.from_user.id
     if from_id not in chatadmins[chat_id] and from_id != creatorid:
         bot.reply_to(message, "Недостаточно прав")
@@ -296,22 +298,24 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""")
 @bot.message_handler(commands=['st', 'mystat'])
 def mystat(message):
     essential_crap(message)
-    if bool(message.reply_to_message):
+    if message.reply_to_message:
         uu = message.reply_to_message.from_user
         uid = uu.id
     else:
         uu = message.from_user
         uid = uu.id
-    text = """Статистика пользователя {u}:
+    try:
+        text = """Статистика пользователя {u}:
 ₫: {c}
-Сообщений за день: {m}""".format(u=getuname(uu), c=carma[message.chat_id].get(uid, defaultUserCarma), m=msgcount[message.chat_id].get(uid, 0))
-
-    bot.reply_to(message, text)
+Сообщений за день: {m}""".format(u=getuname(uu), c=carma[message.chat.id].setdefault(uid, defaultUserCarma), m=msgcount[message.chat.id].setdefault(uid, 0))
+        bot.reply_to(message, text)
+    except Exception:
+        pass
 
 @bot.message_handler(commands=['top', 'topstat'])
 def topstat(message):
     essential_crap(message)
-    chat_id = message.chat_id
+    chat_id = message.chat.id
     chat = carma[chat_id]
     sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
     msg = "Статистика пользователей: \n"
@@ -320,13 +324,13 @@ def topstat(message):
             un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
         except IndexError:
             break
-        msg += "{}: {} сообщений, {} ₫\n".format(un, msgcount[chat_id].get(sorttop[i][0], 0), sorttop[i][1])
+        msg += "{}: {} сообщений, {} ₫\n".format(un, msgcount[chat_id].setdefault(sorttop[i][0], 0), sorttop[i][1])
     bot.send_message(chat_id, msg)
 
 @bot.message_handler(commands=['mtop' , 'msgtopstat'])
 def mtopstat(message):
     essential_crap(message)
-    chat_id = message.chat_id
+    chat_id = message.chat.id
     chat = msgcount[chat_id]
     sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
     msg = "Статистика пользователей: \n"
@@ -335,7 +339,7 @@ def mtopstat(message):
             un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
         except IndexError:
             break
-        msg += "{}: {} сообщений, {} ₫\n".format(un, sorttop[i][1], carma[chat_id].get(sorttop[i][0], defaultUserCarma))
+        msg += "{}: {} сообщений, {} ₫\n".format(un, sorttop[i][1], carma[chat_id].setdefault(sorttop[i][0], defaultUserCarma))
     bot.send_message(chat_id, msg)
 
 @bot.message_handler(commands=['ask'])
@@ -344,7 +348,7 @@ def ask(message):
     args = message.text
     args = args.split()
     args.pop(0)
-    chat_id = message.chat_id
+    chat_id = message.chat.id
     fail = False
     try:
         arg = int(args[0])
@@ -362,8 +366,8 @@ def ask(message):
 
     templ = 'asked:{}:{}'
 
-    mrkup = InlineKeyboardMarkup()
-    mrkup.add(InlineKeyboardButton("Подарить", callback_data=templ.format(toid, arg)), InlineKeyboardButton("Закончить сбор", callback_data=templ.format(toid, 'stop')))
+    mrkup = types.InlineKeyboardMarkup(row_width=1)
+    mrkup.add(types.InlineKeyboardButton("Подарить", callback_data=templ.format(toid, arg)), types.InlineKeyboardButton("Закончить сбор", callback_data=templ.format(toid, 'stop')))
 
     captstr = ''
     if len(args) > 1:
@@ -371,7 +375,7 @@ def ask(message):
         args.pop(0)
         captstr += ' '.join(args)
 
-    bot.send_message(chat_id, "{} просит {} ₫.{}".format(getuname(update.message.from_user), arg, captstr), reply_markup=mrkup)
+    bot.send_message(chat_id, "{} просит {} ₫.{}".format(getuname(message.from_user), arg, captstr), reply_markup=mrkup)
 
 @bot.message_handler(commands=['pay'])
 def pay(message):
@@ -380,7 +384,7 @@ def pay(message):
     args = args.split()
     args.pop(0)
     fromid = message.from_user.id
-    chat_id = message.chat_id
+    chat_id = message.chat.id
     fail = False
     try:
         arg = int(args[0])
@@ -405,14 +409,14 @@ def pay(message):
     if not payment(chat_id, fromid, toid, arg, True):
         bot.reply_to(message, "Недостаточно ₫!")
     else:
-        bot.reply_to(message, "{} ₫ переведено.".format(arg), reply_to_message_id=update.message.message_id)
+        bot.reply_to(message, "{} ₫ переведено.".format(arg))
     sendnotif(bot, fromid, toid, arg)
 
 @bot.message_handler(regexp='^\+{2,}(.+)?')
 def thnx(message):
     essential_crap(message)
-    chat_id = message.chat_id
-    if not bool(update.message.reply_to_message):
+    chat_id = message.chat.id
+    if not bool(message.reply_to_message):
 #       bot.send_message(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
 #           reply_to_message_id=update.message.message_id)
         return
@@ -428,34 +432,34 @@ def thnx(message):
 #       reply_to_message_id=update.message.message_id)
 
 @bot.message_handler(commands=['sub', 'subscr'])
-def subscr(bot, update):
+def subscr(message):
     essential_crap(message)
-    chat_id = update.message.chat_id
-    from_user = update.message.from_user
+    chat_id = message.chat.id
+    from_user = message.from_user
     if not from_user.id in subscribed:
         try:
             bot.send_message(from_user.id, text='Подписка оформлена')
         except:
             bot.send_message(chat_id, text="Невозможно подписаться на обновления. Напишите в ЛС боту",
-            reply_to_message_id=update.message.message_id)
+            reply_to_message_id=message.message_id)
             return
         subscribed.append(from_user.id)
         bot.send_message(chat_id, text="""Успешно подписаны на обновления ₫.
-!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", reply_to_message_id=update.message.message_id)
+!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", reply_to_message_id=message.message_id)
     else:
-        bot.send_message(chat_id, text="Вы уже подписаны на обновления.", reply_to_message_id=update.message.message_id)
+        bot.send_message(chat_id, text="Вы уже подписаны на обновления.", reply_to_message_id=message.message_id)
 
 @bot.message_handler(commands=['unsub', 'unsubscr'])
-def unsubscr(bot, update):
+def unsubscr(message):
     essential_crap(message)
-    chat_id = update.message.chat_id
-    from_user = update.message.from_user
+    chat_id = message.chat.id
+    from_user = message.from_user
     if from_user.id in subscribed:
         subscribed.pop(subscribed.index(from_user.id))
         bot.send_message(chat_id, text="Успешно отписаны от обновлений ₫.", 
-            reply_to_message_id=update.message.message_id)
+            reply_to_message_id=message.message_id)
     else:
-        bot.send_message(chat_id, text="Вы ещё не подписаны на обновления.", reply_to_message_id=update.message.message_id)
+        bot.send_message(chat_id, text="Вы ещё не подписаны на обновления.", reply_to_message_id=message.message_id)
 
 @bot.message_handler(commands=['uid'])
 def uid(message):
@@ -464,7 +468,7 @@ def uid(message):
         uid = message.reply_to_message.from_user.id
     else:
         uid = message.from_user.id
-    bot.reply_to(message, "UID: {0}, GID: {1}".format(uid, message.chat_id))
+    bot.reply_to(message, "UID: {0}, GID: {1}".format(uid, message.chat.id))
 
 @bot.message_handler(commands=['whois'])
 def whois(message):
@@ -485,37 +489,39 @@ def pidr(message):
     # WIP
     pass
 
-@bot.message_handler(func=lambda msg: True)
+@bot.message_handler(func=lambda message: True, content_types=['audio', 'video', 'document', 'text', 'location', 'contact', 'sticker'])
 def essential_crap(message):
     global msgcount, unames
     if not bool(message.new_chat_member):
         uid = message.from_user.id
-        gid = message.chat_id
+        gid = message.chat.id
         if uid != gid:
-            msgcount[gid][uid] = msgcount[gid].get(uid, 0) + 1
-        if not uid in carma[gid]:
-            carma[gid][uid] = defaultUserCarma
+            msgcount[gid][uid] = msgcount[gid].setdefault(uid, 0) + 1
+            if not uid in carma[gid]:
+                carma[gid][uid] = defaultUserCarma
         unames.update({uid: getuname(message.from_user)})
-    if update.message.new_chat_member.id == botid:
-        start(bot, update, [])
+    else:
+        bot.send_message(message.chat.id, "А ты, {} , на чём пишешь?\n@mefest666 записывай!!!".format(message.form_user.first_name))
 
 
 if __name__ == "__main__":
     if path.exists('msg.pkl'):
         with open('msg.pkl', 'rb') as f:
-            msgcount = cpickle.load(f)
+            msgcount = pickle.load(f)
         with open('carma.pkl', 'rb') as f:
-            carma = cpickle.load(f)
+            carma = pickle.load(f)
         with open('unames.pkl', 'rb') as f:
-            unames = cpickle.load(f)
+            unames = pickle.load(f)
         with open('subs.pkl', 'rb') as f:
-            subscribed = cpickle.load(f)
+            subscribed = pickle.load(f)
         with open('admins.pkl', 'rb') as f:
-            chatadmins = cpickle.load(f)
+            chatadmins = pickle.load(f)
         logging.info("data loaded.")
 
     scheduler = BackgroundScheduler()
     jobhourly()
     scheduler.add_job(jobhourly, 'interval', minutes=60)
     scheduler.add_job(jobdaily, 'interval', hours=24)
+    for key in msgcount.keys():
+        bot.send_message(key, "Стейк в ауте!!")
     bot.polling(none_stop=True)
