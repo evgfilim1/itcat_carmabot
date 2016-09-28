@@ -629,9 +629,6 @@ dp.add_handler(CommandHandler('unsub', unsubscr))
 ##########
 dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True))
 ##########
-dp.add_handler(CommandHandler('tipidor', pidr))
-dp.add_handler(CommandHandler('pidor', pidr))
-dp.add_handler(CommandHandler('pidr', pidr))
 dp.add_handler(RegexHandler('^What time is it\?$', codingtime))
 dp.add_handler(RegexHandler('^Wh\u0430t time is it\?$', perdolingtime))
 ##########
