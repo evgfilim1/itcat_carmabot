@@ -1,2 +1,2 @@
-*.pkl
-bottoken.py
+botdata
+botlibs/token.py

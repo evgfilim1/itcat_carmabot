@@ -8,7 +8,7 @@ If you have `"pip3: command not found"` error, check that you have `python3` and
 
 Then do these steps to set up the bot:
 ```sh
-$ mkdir botlibs
+$ mkdir botlibs botdata
 $ echo 'TOKEN = "Here goes your bot API token"' >> botlibs/token.py
 $ echo 'creatorid = Here goes your Telegram user ID (as number)' >> botlibs/token.py
 ```
