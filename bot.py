@@ -1,89 +1,105 @@
 # -*- coding: utf-8 -*-
 from telegram import *
 from telegram.ext import *
-from bottoken import testTOKEN as TOKEN
-from bottoken import creatorid
+from botlibs.token import testTOKEN as TOKEN
+from botlibs.token import creatorid
 from os import path
 import logging, time, math, pickle
-#import json
+
+ddr = './botdata/'
+dbgcid = -1001081124233
 
 TIME_FORMAT = "%d %b, %H:%M:%S"
 logging.basicConfig(format = '%(levelname)-8s [%(asctime)s] %(message)s', level = logging.INFO,
 	datefmt = TIME_FORMAT)
 
 botid = int(TOKEN[:TOKEN.index(':')])
+#botuname = None
 
-help_text = """Привет. Я бот, который считает карму в чате :)
+coinEmoji = '🐱'
+
+help_text = """Привет. Я бот, который считает catcoin'ы (обозначаются как {e}) в чате :)
 /mystat или /st — узнать статистику пользователя
-/topstat или /top — топ пользователей по карме
+/topstat или /top — топ пользователей по {e}
 /msgtopstat или /mtop — топ пользователей по сообщениям
-/pay — перевести карму
-/ask — попросить карму
-/thanks или /tx — +1 к карме другого человека
-/sub или /subscr — подписаться на изменения кармы (сообщения приходят в ЛС)
+/pay — перевести {e}
+/ask — попросить {e}
+/thanks, /tx или "++" — +1 {e} для другого человека
+/sub или /subscr — подписаться на изменения {e} (сообщения приходят в ЛС)
 Для отписки — /unsub или /unsubscr
 
 Каждый день самым активным пользователям чата — призы!
-За 1 место — +10 к карме
-За 2 место — +5 к карме
-За 3 место — +2 к карме
+За 1 место — +10 {e}
+За 2 место — +5 {e}
+За 3 место — +2 {e}
 _____
 Ограничение всех трансферов: [0..1023]
 Инфо о боте —> /about
 Команды администрирования —> /admin
-Вскоре будут доступны некоторые плюшки с тратой кармы, а пока, зарабатывайте её!"""
+Вскоре будут доступны некоторые плюшки с тратой catcoin'ов, а пока, зарабатывайте их!""".format(e=coinEmoji)
 
 hid_text = """Команды, не относящиеся непосредственно к боту:
 /uid — узнать UID и GID
 /whois — узнать, кто владелец определённого ID
-/pidor — feature by @Racc_oon
+Я могу тебе сказать, который сейчас час! :)
 """
 
-about_text = """Я бот, который считает карму в чате :)
+about_text = """Я бот, который считает {e} в чате :)
 По всем вопросам, обращайся к моему создателю —> @evgfilim1
-Если вы хотите помочь написанию бота, вам сюда —> @itcat_carma"""
+Если вы хотите помочь написанию бота, вам сюда —> @itcat_carma""".format(e=coinEmoji)
 
-features_text = """Фичи за карму:
+features_text = """Фичи за {e}:
 Название - Цена - Как получить
-Досрочный разбан - 50 - /feature 0
 Отправка сообщения во время бана - 5 - /feature 1
 Передать всем привет - 1 - /feature 2
-Получить подарок на праздник - (-2) - /feature 3
-Устроить раздачу - 100 - /feature 4
-Уметь отнимать карму - 1000 - /feature 5
-Быть кармодрочером - 500 - /feature 6"""
+Получить подарок на праздник - (-5) - /feature 3
+Устроить раздачу - 50 - /feature 4
+Испытать удачу - 10 - /feature 777
+""".format(e=coinEmoji)
 
-#defaultAdminCarma = -20
-defaultUserCarma = -20
+defaultUserCarma = 0
 addViaThanks = 1
 transferLimit = 1024
-
-filters = [Filters.audio,
-	Filters.contact,
-	Filters.command,
-	Filters.document,
-	Filters.location,
-	Filters.photo,
-	Filters.status_update,
-	Filters.sticker,
-	Filters.text,
-	Filters.venue,
-	Filters.video,
-	Filters.voice]
 
 carma = {}
 msgcount = {}
 unames = {}
 chatadmins = {}
 subscribed = []
-#bank = {}
+targets = {}
 
 def error(bot, update, error):
 	logging.warning('Update "{0}" caused error "{1}"'.format(update, error))
 	bot.sendMessage(update.message.chat_id, text="Произошла ошибка при обработке этого сообщения", 
 		reply_to_message_id=update.message.message_id)
+		
+def migrate_tov2(bot, update):
+	t = """Миграция данных пользователей завершена.
+----------
+Бот обновлён!
+Что нового в версии 2?
+1) Включен тихий режим
+2) Теперь можно писать боту в ЛС
+3) Убрана фича by @Racc_oon (/pidor)
+4) Карма переименована в Catcoin ({e})
+5) Выпилены длинные команды
+6) Теперь админы могут закрывать сбор кармы
+""".format(e=coinEmoji)
+	
+	migrated = []
+	for cid in carma:
+		for usr in carma[cid]:
+			migrated.append(usr)
+			if carma[cid][usr] < -19:
+				carma[cid][usr] = 0
+			else:
+				carma[cid][usr] = carma[cid][usr] + 20
+	
+	logging.info(migrated)
+	jobhourly(None, None)
+	bot.sendMessage(update.message.chat_id, text=t)
 
-def payment(chat_id, from_id, to_id, amount, check=False):
+def payment(chat_id, from_id, to_id, amount, check=True):
 	global carma
 	fromcarma = carma[chat_id].get(from_id, defaultUserCarma)
 	if check and amount > fromcarma:
@@ -100,26 +116,29 @@ def sendnotif(bot, from_id, to_id, amount):
 		capt = ''
 		if to_id != 0:
 			capt = 'для пользователя {}'.format(unames.get(to_id, 'Unknown user {}'.format(to_id)))
-		bot.sendMessage(from_id, text="У вас было отнято {} кармы {}".format(amount, capt))
+		bot.sendMessage(from_id, text="У вас было отнято {0} {e} {1}".format(amount, capt, e=coinEmoji))
 		del capt
 
 	if to_id != 0 and to_id in subscribed:
 		capt = ''
 		if from_id != 0:
 			capt = 'пользователем {}'.format(unames.get(from_id, 'Unknown user {}'.format(from_id)))
-		bot.sendMessage(to_id, text="Вам было добавлено {} кармы {}".format(amount, capt))
+		bot.sendMessage(to_id, text="Вам было добавлено {0} {e} {1}".format(amount, capt, e=coinEmoji))
 
 def getuname(user):
 	if bool(user.username):
 		return user.username
 	else:
 		return user.first_name
+		
+def inprivate(chat_id, from_id):
+	return (chat_id == from_id)
 
 def onStuff(bot, update):
 	global msgcount, unames
 	uid = update.message.from_user.id
 	gid = update.message.chat_id
-	if uid != gid:
+	if not inprivate(gid, uid):
 		msgcount[gid][uid] = msgcount[gid].get(uid, 0) + 1
 	if not uid in carma[gid]:
 		carma[gid][uid] = defaultUserCarma
@@ -142,30 +161,60 @@ def jobdaily(bot, job):
 
 	for chat in msgcount:
 		msgcount[chat].clear()
+		
+	logging.info("jobdaily done")
 
 def jobhourly(bot, job):
-	with open('msg.pkl', 'wb') as f:
+	with open(ddr + 'msg.pkl', 'wb') as f:
 		pickle.dump(msgcount, f, pickle.HIGHEST_PROTOCOL)
-	with open('carma.pkl', 'wb') as f:
+	with open(ddr + 'carma.pkl', 'wb') as f:
 		pickle.dump(carma, f, pickle.HIGHEST_PROTOCOL)
-	with open('unames.pkl', 'wb') as f:
+	with open(ddr + 'unames.pkl', 'wb') as f:
 		pickle.dump(unames, f, pickle.HIGHEST_PROTOCOL)
-	with open('subs.pkl', 'wb') as f:
+	with open(ddr + 'subs.pkl', 'wb') as f:
 		pickle.dump(subscribed, f, pickle.HIGHEST_PROTOCOL)
-	with open('admins.pkl', 'wb') as f:
+	with open(ddr + 'admins.pkl', 'wb') as f:
 		pickle.dump(chatadmins, f, pickle.HIGHEST_PROTOCOL)
+	with open(ddr + 'targets.pkl', 'wb') as f:
+		pickle.dump(targets, f, pickle.HIGHEST_PROTOCOL)
 	logging.info("data saved.")
 
 def start(bot, update, args):
+	text = update.message.text.split()[0].split('@')
+	if not ((len(text) == 2 and text[1] == botuname) or (len(text) == 1)):
+		return
+	
+	try:
+		target = int(args[0])
+	except:
+		target = None
+	
 	global carma, msgcount, chatadmins, unames
 	chat_id = update.message.chat_id
-	if chat_id == update.message.from_user.id:
-		bot.sendMessage(chat_id, text="Готово, теперь вы можете получать уведомления.")
-		return
+	from_id = update.message.from_user.id
+	
+	if inprivate(chat_id, from_id):
+		if target:
+			ct = bot.getChat(target)
+			if ct.type == 'private':
+				bot.sendMessage(chat_id, text="ЛС? Я не умею считать Catcoin'ы в ЛС.")
+				return
+			targets.update({from_id: target})
+			bot.sendMessage(chat_id, text="'{}' установлен как чат по умолчанию".format(ct.title))
+			return
+		else:
+			bot.sendMessage(chat_id, text="""Готово, теперь вы можете получать уведомления.
+Если вы хотите установить чат по умолчанию в ЛС (чтобы я реагировал на команды, как в чате), напишите в том чате /start getlink""")
+			return
 
 	if chat_id in carma:
-		if len(args) == 1 and args[0] == 'clear' and update.message.from_user.id == creatorid:
+		if len(args) > 0 and args[0] == 'clear' and update.message.from_user.id == creatorid:
 			bot.sendMessage(chat_id, text="Реинициализация чата...", reply_to_message_id=update.message.message_id)
+		elif len(args) > 0 and args[0] == 'getlink':
+			bot.sendMessage(chat_id,
+				text="[Установить этот чат в качестве чата по умолчанию в ЛС]({})".format(baselink.format(chat_id)),
+				parse_mode="Markdown", disable_web_page_preview=True, reply_to_message_id=update.message.message_id)
+			return
 		else:
 			bot.sendMessage(chat_id, text="Этот чат уже инициализирован", reply_to_message_id=update.message.message_id)
 			return
@@ -174,21 +223,31 @@ def start(bot, update, args):
 	chatadmins[chat_id] = []
 	admins = bot.getChatAdministrators(chat_id)
 	for admin in admins:
-		#carma[chat_id].update({admin.user.id: defaultAdminCarma})
-		#msgcount[chat_id].update({admin.user.id: 0})
 		unames.update({admin.user.id: getuname(admin.user)})
 		chatadmins[chat_id].append(admin.user.id)
 
 	bot.sendMessage(chat_id, text="Чат инициализирован. /help")
 
 def Help(bot, update):
-	bot.sendMessage(update.message.chat_id, text=help_text)
+	text = update.message.text.split()[0].split('@')
+	if not ((len(text) == 2 and text[1] == botuname) or (len(text) == 1)):
+		return
+	
+	try:
+		bot.sendMessage(update.message.from_user.id, text=help_text)
+	except:
+		bot.sendMessage(update.message.chat_id, text="Невозможно отправить сообщение. Напиши в ЛС мне",
+			reply_to_message_id=update.message.message_id)
 
 def about(bot, update):
 	bot.sendMessage(update.message.chat_id, text=about_text)
 
 def hid(bot, update):
-	bot.sendMessage(update.message.chat_id, text=hid_text)
+	try:
+		bot.sendMessage(update.message.from_user.id, text=hid_text)
+	except:
+		bot.sendMessage(update.message.chat_id, text="Невозможно отправить сообщение. Напиши в ЛС мне",
+			reply_to_message_id=update.message.message_id)
 
 def button(bot, update):
 	query = update.callback_query
@@ -202,15 +261,20 @@ def button(bot, update):
 		if data[2] == 'stop':
 			if int(data[1]) == qfrom:
 				bot.editMessageText(chat_id=chat_id, message_id=msg_id, reply_markup=InlineKeyboardMarkup([]),
-					text="Сбор кармы остановлен владельцем.")
+					text="Сбор {e} остановлен владельцем.".format(e=coinEmoji))
+			elif qfrom in chatadmins[chat_id]:
+				bot.editMessageText(chat_id=chat_id, message_id=msg_id, reply_markup=InlineKeyboardMarkup([]),
+					text="Сбор {e} остановлен Админом.".format(e=coinEmoji))
 			else:
-				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Вы не владелец этого сбора кармы")
+				bot.answerCallbackQuery(callback_query_id=inlmsgid,
+					text="Вы не владелец этого сбора {e}".format(e=coinEmoji))
 		else:
 			if payment(chat_id, qfrom, int(data[1]), int(data[2]), True):
-				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Успешно переведено {} кармы".format(data[2]))
+				bot.answerCallbackQuery(callback_query_id=inlmsgid,
+					text="Успешно переведено {} {e}".format(data[2], e=coinEmoji))
 				sendnotif(bot, qfrom, int(data[1]), int(data[2]))
 			else:
-				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Недостаточно кармы")
+				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Недостаточно {e}".format(e=coinEmoji))
 	else:
 		return
 
@@ -237,9 +301,12 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=upda
 			jobdaily(None, None)
 			bot.sendMessage(chat_id, text="jobdaily done",  reply_to_message_id=update.message.message_id)
 			return
-#		elif cmd == 'dbgvar':
-#			bot.sendMessage(chat_id, text='{}'.format(eval(args[0])))
-#			return
+		elif cmd == 'dbgvar' and from_id == creatorid:
+			bot.sendMessage(chat_id, text='{}'.format(eval(' '.join(args))))
+			return
+		elif cmd == 'shell' and from_id == creatorid:
+			eval(' '.join(args))
+			return
 		elif cmd == 'reinit':
 			if args[0] == 'all':
 				start(bot, update, ['clear'])
@@ -295,21 +362,40 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=upda
 
 def mystat(bot, update):
 	msg = update.message
+	chat_id = msg.chat_id
 	if bool(msg.reply_to_message):
 		uu = msg.reply_to_message.from_user
 		uid = uu.id
 	else:
 		uu = msg.from_user
 		uid = uu.id
+		
+	if inprivate(chat_id, msg.from_user.id):
+		chat_id = targets.get(chat_id, 0)
+		if chat_id == 0:
+			bot.sendMessage(msg.from_user.id, text="Вы не установили связь с чатом. /start для подробностей")
+			return
+	
 	text = """Статистика пользователя {u}:
-Карма: {c}
-Сообщений за день: {m}""".format(u=getuname(uu), c=carma[msg.chat_id].get(uid, defaultUserCarma), 
-	m=msgcount[msg.chat_id].get(uid, 0))
+Catcoin'ы: {c}
+Сообщений за день: {m}""".format(u=getuname(uu), c=carma[chat_id].get(uid, defaultUserCarma), 
+	m=msgcount[chat_id].get(uid, 0))
 
-	bot.sendMessage(msg.chat_id, text=text, reply_to_message_id=update.message.message_id)
+	try:
+		bot.sendMessage(update.message.from_user.id, text=text)
+	except:
+		bot.sendMessage(update.message.chat_id, text="Невозможно отправить сообщение. Напиши в ЛС мне",
+			reply_to_message_id=update.message.message_id)
 
 def topstat(bot, update):
 	chat_id = update.message.chat_id
+	from_id = update.message.from_user.id
+	if inprivate(chat_id, from_id):
+		chat_id = targets.get(chat_id, 0)
+		if chat_id == 0:
+			bot.sendMessage(from_id, text="Вы не установили связь с чатом. /start для подробностей")
+			return
+	
 	chat = carma[chat_id]
 	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 	msg = "Статистика пользователей: \n"
@@ -318,11 +404,23 @@ def topstat(bot, update):
 			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
 		except IndexError:
 			break
-		msg += "{}: {} сообщений, {} кармы\n".format(un, msgcount[chat_id].get(sorttop[i][0], 0), sorttop[i][1])
-	bot.sendMessage(chat_id, text=msg)
+		msg += "{}: {} сообщений, {} {e}\n".format(un, msgcount[chat_id].get(sorttop[i][0], 0), sorttop[i][1], e=coinEmoji)
+
+	try:
+		bot.sendMessage(update.message.from_user.id, text=msg)
+	except:
+		bot.sendMessage(update.message.chat_id, text="Невозможно отправить сообщение. Напиши в ЛС мне",
+			reply_to_message_id=update.message.message_id)
 
 def mtopstat(bot, update):
 	chat_id = update.message.chat_id
+	from_id = update.message.from_user.id
+	if inprivate(chat_id, from_id):
+		chat_id = targets.get(chat_id, 0)
+		if chat_id == 0:
+			bot.sendMessage(from_id, text="Вы не установили связь с чатом. /start для подробностей")
+			return
+
 	chat = msgcount[chat_id]
 	sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
 	msg = "Статистика пользователей: \n"
@@ -331,8 +429,13 @@ def mtopstat(bot, update):
 			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
 		except IndexError:
 			break
-		msg += "{}: {} сообщений, {} кармы\n".format(un, sorttop[i][1], carma[chat_id].get(sorttop[i][0], defaultUserCarma))
-	bot.sendMessage(chat_id, text=msg)
+		msg += "{}: {} сообщений, {} {e}\n".format(un, sorttop[i][1], carma[chat_id].get(sorttop[i][0],
+			defaultUserCarma), e=coinEmoji)
+	try:
+		bot.sendMessage(update.message.from_user.id, text=msg)
+	except:
+		bot.sendMessage(update.message.chat_id, text="Невозможно отправить сообщение. Напиши в ЛС мне",
+			reply_to_message_id=update.message.message_id)
 
 def ask(bot, update, args):
 	chat_id = update.message.chat_id
@@ -363,8 +466,8 @@ def ask(bot, update, args):
 		args.pop(0)
 		captstr += ' '.join(args)
 
-	bot.sendMessage(chat_id, text="{} просит {} кармы.{}".format(getuname(update.message.from_user), arg, captstr), 
-		reply_markup=mrkup)
+	bot.sendMessage(chat_id, text="{0} просит {1} {e}.{2}".format(getuname(update.message.from_user), arg, 
+		captstr, e=coinEmoji), reply_markup=mrkup)
 
 def pay(bot, update, args):
 	fromid = update.message.from_user.id
@@ -392,9 +495,11 @@ def pay(bot, update, args):
 		toid = creatorid
 
 	if not payment(chat_id, fromid, toid, arg, True):
-		bot.sendMessage(chat_id, text="Недостаточно кармы!", reply_to_message_id=update.message.message_id)
+		bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji),
+			reply_to_message_id=update.message.message_id)
 	else:
-		bot.sendMessage(chat_id, text="{} кармы переведено.".format(arg), reply_to_message_id=update.message.message_id)
+		bot.sendMessage(chat_id, text="{} {e} переведено.".format(arg, e=coinEmoji),
+			reply_to_message_id=update.message.message_id)
 	sendnotif(bot, fromid, toid, arg)
 		
 def thnx(bot, update):
@@ -411,7 +516,7 @@ def thnx(bot, update):
 		u.id = creatorid
 	payment(chat_id, 0, u.id, 1)
 	sendnotif(bot, 0, u.id, 1)
-	bot.sendMessage(chat_id, text="Добавлено +1 к карме {}".format(getuname(u)),
+	bot.sendMessage(chat_id, text="Добавлено +1 {e} {0}".format(getuname(u), e=coinEmoji),
 		reply_to_message_id=update.message.message_id)
 
 def statusupdate(bot, update):
@@ -428,11 +533,12 @@ def subscr(bot, update):
 			bot.sendMessage(from_user.id, text='Подписка оформлена')
 		except:
 			bot.sendMessage(chat_id, text="Невозможно подписаться на обновления. Напишите в ЛС боту",
-			reply_to_message_id=update.message.message_id)
+				reply_to_message_id=update.message.message_id)
 			return
 		subscribed.append(from_user.id)
-		bot.sendMessage(chat_id, text="""Успешно подписаны на обновления кармы.
-!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""", reply_to_message_id=update.message.message_id)
+		bot.sendMessage(chat_id, text="""Успешно подписаны на обновления {e}.
+!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""".format(e=coinEmoji),
+			reply_to_message_id=update.message.message_id)
 	else:
 		bot.sendMessage(chat_id, text="Вы уже подписаны на обновления.", reply_to_message_id=update.message.message_id)
 
@@ -441,7 +547,7 @@ def unsubscr(bot, update):
 	from_user = update.message.from_user
 	if from_user.id in subscribed:
 		subscribed.pop(subscribed.index(from_user.id))
-		bot.sendMessage(chat_id, text="Успешно отписаны от обновлений кармы.", 
+		bot.sendMessage(chat_id, text="Успешно отписаны от обновлений {e}.".format(e=coinEmoji), 
 			reply_to_message_id=update.message.message_id)
 	else:
 		bot.sendMessage(chat_id, text="Вы ещё не подписаны на обновления.", reply_to_message_id=update.message.message_id)
@@ -465,18 +571,25 @@ def whois(bot, update, args):
 	who = bot.getChat(whoid)
 	bot.sendMessage(update.message.chat_id, text="Whois {}: Username: {}, FirstName: {}, LastName: {}".format(who.id,
 		who.username, who.first_name, who.last_name), reply_to_message_id=update.message.message_id)
+		
+def perdolingtime(bot, update):
+	bot.sendMessage(update.message.chat_id, text="It's perdoling time!", reply_to_message_id=update.message.message_id)
 
-def pidr(bot, update):
-	onStuff(bot, update)
-	payment(update.message.chat_id, update.message.from_user.id, 0, 100)
 
 updater = Updater(TOKEN)
 del TOKEN
 
 jobs = updater.job_queue
+lbot = updater.bot
 
 jobs.put(Job(jobhourly, 3600.0))
 jobs.put(Job(jobdaily, 86400.0))
+
+lbot.sendMessage(dbgcid, text="Hello!")
+botuname = lbot.getMe().username
+
+baselink = 'telegram.me/{un}?start='.format(un=botuname)
+baselink = baselink + '{}'
 
 dp = updater.dispatcher
 
@@ -490,20 +603,20 @@ dp.add_handler(CommandHandler('uid', uid))
 ##########
 dp.add_handler(CommandHandler('whois', whois, pass_args=True))
 ##########
-dp.add_handler(CommandHandler('mystat', mystat))
+# dp.add_handler(CommandHandler('mystat', mystat, pass_args=True))
 dp.add_handler(CommandHandler('st', mystat))
 ##########
-dp.add_handler(CommandHandler('topstat', topstat))
+# dp.add_handler(CommandHandler('topstat', topstat))
 dp.add_handler(CommandHandler('top', topstat))
 ##########
-dp.add_handler(CommandHandler('msgtopstat', mtopstat))
+# dp.add_handler(CommandHandler('msgtopstat', mtopstat))
 dp.add_handler(CommandHandler('mtop', mtopstat))
 ##########
 dp.add_handler(CommandHandler('ask', ask, pass_args=True))
 ##########
 dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 ##########
-dp.add_handler(CommandHandler('thanks', thnx))
+# dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
 dp.add_handler(RegexHandler('^\+{2,}(.+)?', thnx))
 ##########
@@ -515,9 +628,7 @@ dp.add_handler(CommandHandler('unsub', unsubscr))
 ##########
 dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True))
 ##########
-dp.add_handler(CommandHandler('tipidor', pidr))
-dp.add_handler(CommandHandler('pidor', pidr))
-dp.add_handler(CommandHandler('pidr', pidr))
+dp.add_handler(RegexHandler('^Wh\u0430t time is it\?$', perdolingtime))
 ##########
 dp.add_handler(CallbackQueryHandler(button))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
@@ -526,20 +637,24 @@ dp.add_handler(MessageHandler([], onStuff))
 ##########
 dp.add_error_handler(error)
 
-if path.exists('msg.pkl'):
-	with open('msg.pkl', 'rb') as f:
+if path.exists(ddr + 'msg.pkl'):
+	with open(ddr + 'msg.pkl', 'rb') as f:
 		msgcount = pickle.load(f)
-	with open('carma.pkl', 'rb') as f:
+	with open(ddr + 'carma.pkl', 'rb') as f:
 		carma = pickle.load(f)
-	with open('unames.pkl', 'rb') as f:
+	with open(ddr + 'unames.pkl', 'rb') as f:
 		unames = pickle.load(f)
-	with open('subs.pkl', 'rb') as f:
+	with open(ddr + 'subs.pkl', 'rb') as f:
 		subscribed = pickle.load(f)
-	with open('admins.pkl', 'rb') as f:
+	with open(ddr + 'admins.pkl', 'rb') as f:
 		chatadmins = pickle.load(f)
+	with open(ddr + 'targets.pkl', 'rb') as f:
+		targets = pickle.load(f)
 	logging.info("data loaded.")
 
 updater.start_polling()
 updater.idle()
 
 jobhourly(None, None)
+
+lbot.sendMessage(dbgcid, text="Shutting down...")
