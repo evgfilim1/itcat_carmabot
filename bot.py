@@ -468,6 +468,9 @@ def whois(bot, update, args):
 def pidr(bot, update):
 	onStuff(bot, update)
 	payment(update.message.chat_id, update.message.from_user.id, 0, 100)
+	
+def codingtime(bot, update):
+	bot.sendMessage(update.message.chat_id, text="It's coding time!", reply_to_message_id=update.message.message_id)
 
 updater = Updater(TOKEN)
 del TOKEN
@@ -517,6 +520,7 @@ dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True))
 dp.add_handler(CommandHandler('tipidor', pidr))
 dp.add_handler(CommandHandler('pidor', pidr))
 dp.add_handler(CommandHandler('pidr', pidr))
+dp.add_handler(RegexHandler('^What time is it\?$', codingtime))
 ##########
 dp.add_handler(CallbackQueryHandler(button))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
