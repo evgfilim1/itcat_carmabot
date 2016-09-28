@@ -7,14 +7,12 @@ from os import path
 import logging, time, math, pickle
 
 ddr = './botdata/'
-dbgcid = -1001081124233
 
 TIME_FORMAT = "%d %b, %H:%M:%S"
 logging.basicConfig(format = '%(levelname)-8s [%(asctime)s] %(message)s', level = logging.INFO,
 	datefmt = TIME_FORMAT)
 
 botid = int(TOKEN[:TOKEN.index(':')])
-#botuname = None
 
 coinEmoji = '🐱'
 
@@ -589,7 +587,6 @@ lbot = updater.bot
 jobs.put(Job(jobhourly, 3600.0))
 jobs.put(Job(jobdaily, 86400.0))
 
-#lbot.sendMessage(dbgcid, text="Hello!")
 botuname = lbot.getMe().username
 
 baselink = 'telegram.me/{un}?start='.format(un=botuname)
@@ -664,5 +661,3 @@ updater.start_polling()
 updater.idle()
 
 jobhourly(None, None)
-
-#lbot.sendMessage(dbgcid, text="Shutting down...")
