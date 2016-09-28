@@ -84,6 +84,7 @@ def migrate_tov2(bot, update):
 4) Карма переименована в Catcoin ({e})
 5) Выпилены длинные команды
 6) Теперь админы могут закрывать сбор кармы
+7) Уведомление о получении ежедневного бонуса
 """.format(e=coinEmoji)
 	
 	migrated = []
@@ -157,6 +158,7 @@ def jobdaily(bot, job):
 			except IndexError:
 				break
 			carma[cid][usrid] = carma[cid].get(usrid, 0) + bonus
+			sendnotif(bot, 0, usrid, bonus)
 			bonus = bonus // 2
 
 	for chat in msgcount:
@@ -446,7 +448,7 @@ def ask(bot, update, args):
 		fail = True
 
 	if fail:
-		bot.sendMessage(chat_id, text="Использование: /ask <сумма>", reply_to_message_id=update.message.message_id)
+#		bot.sendMessage(chat_id, text="Использование: /ask <сумма>", reply_to_message_id=update.message.message_id)
 		return
 	else:
 		toid = update.message.from_user.id
@@ -482,7 +484,7 @@ def pay(bot, update, args):
 		fail = True
 
 	if fail:
-		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /pay <сумма>", 
+#		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /pay <сумма>", 
 			reply_to_message_id=update.message.message_id)
 		return
 	else:
@@ -505,19 +507,19 @@ def pay(bot, update, args):
 def thnx(bot, update):
 	chat_id = update.message.chat_id
 	if not bool(update.message.reply_to_message):
-		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
-			reply_to_message_id=update.message.message_id)
+#		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /thanks", 
+#			reply_to_message_id=update.message.message_id)
 		return
 	u = update.message.reply_to_message.from_user
 	if u.id == update.message.from_user.id:
-		bot.sendMessage(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
+#		bot.sendMessage(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
 		return
 	elif u.id == botid:
 		u.id = creatorid
 	payment(chat_id, 0, u.id, 1)
 	sendnotif(bot, 0, u.id, 1)
-	bot.sendMessage(chat_id, text="Добавлено +1 {e} {0}".format(getuname(u), e=coinEmoji),
-		reply_to_message_id=update.message.message_id)
+#	bot.sendMessage(chat_id, text="Добавлено +1 {e} {0}".format(getuname(u), e=coinEmoji),
+#		reply_to_message_id=update.message.message_id)
 
 def statusupdate(bot, update):
 	if not bool(update.message.new_chat_member):
@@ -585,7 +587,7 @@ lbot = updater.bot
 jobs.put(Job(jobhourly, 3600.0))
 jobs.put(Job(jobdaily, 86400.0))
 
-lbot.sendMessage(dbgcid, text="Hello!")
+#lbot.sendMessage(dbgcid, text="Hello!")
 botuname = lbot.getMe().username
 
 baselink = 'telegram.me/{un}?start='.format(un=botuname)
@@ -657,4 +659,4 @@ updater.idle()
 
 jobhourly(None, None)
 
-lbot.sendMessage(dbgcid, text="Shutting down...")
+#lbot.sendMessage(dbgcid, text="Shutting down...")
