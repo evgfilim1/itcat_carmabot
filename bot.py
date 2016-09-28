@@ -483,7 +483,7 @@ def pay(bot, update, args):
 
 	if fail:
 #		bot.sendMessage(chat_id, text="Использование: (в ответ на сообщение получателя) /pay <сумма>", 
-			reply_to_message_id=update.message.message_id)
+#			reply_to_message_id=update.message.message_id)
 		return
 	else:
 		toid = update.message.reply_to_message.from_user.id
