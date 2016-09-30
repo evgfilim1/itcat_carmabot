@@ -17,12 +17,12 @@ botid = int(TOKEN[:TOKEN.index(':')])
 coinEmoji = '🐱'
 
 help_text = """Привет. Я бот, который считает catcoin'ы (обозначаются как {e}) в чате :)
-/mystat или /st — узнать статистику пользователя
-/topstat или /top — топ пользователей по {e}
-/msgtopstat или /mtop — топ пользователей по сообщениям
+/st — узнать статистику пользователя
+/top — топ пользователей по {e}
+/mtop — топ пользователей по сообщениям
 /pay — перевести {e}
 /ask — попросить {e}
-/thanks, /tx или "++" — +1 {e} для другого человека
+/tx или "++" — +1 {e} для другого человека
 /sub или /subscr — подписаться на изменения {e} (сообщения приходят в ЛС)
 Для отписки — /unsub или /unsubscr
 
@@ -101,7 +101,7 @@ def migrate_tov2(bot, update):
 def payment(chat_id, from_id, to_id, amount, check=True):
 	global carma
 	fromcarma = carma[chat_id].get(from_id, defaultUserCarma)
-	if check and amount > fromcarma:
+	if from_id != 0 and check and amount > fromcarma:
 		return False
 	if from_id != 0:
 		carma[chat_id][from_id] = fromcarma - amount
@@ -137,8 +137,9 @@ def onStuff(bot, update):
 	global msgcount, unames
 	uid = update.message.from_user.id
 	gid = update.message.chat_id
-	if not inprivate(gid, uid):
-		msgcount[gid][uid] = msgcount[gid].get(uid, 0) + 1
+	if inprivate(gid, uid):
+		return
+	msgcount[gid][uid] = msgcount[gid].get(uid, 0) + 1
 	if not uid in carma[gid]:
 		carma[gid][uid] = defaultUserCarma
 	unames.update({uid: getuname(update.message.from_user)})
@@ -283,7 +284,7 @@ def adminpanel(bot, update, args):
 	chat_id = update.message.chat_id
 	from_id = update.message.from_user.id
 	if from_id not in chatadmins[chat_id] and from_id != creatorid:
-		bot.sendMessage(chat_id, text="Недостаточно прав", reply_to_message_id=update.message.message_id)
+#		bot.sendMessage(chat_id, text="Недостаточно прав", reply_to_message_id=update.message.message_id)
 		return
 
 	if len(args) == 0:
@@ -298,7 +299,7 @@ flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=upda
 			bot.sendMessage(chat_id, text="jobhourly done", reply_to_message_id=update.message.message_id)
 			return
 		elif cmd == 'spin':
-			jobdaily(None, None)
+			jobdaily(bot, None)
 			bot.sendMessage(chat_id, text="jobdaily done",  reply_to_message_id=update.message.message_id)
 			return
 		elif cmd == 'dbgvar' and from_id == creatorid:
