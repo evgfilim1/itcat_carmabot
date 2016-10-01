@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 from telegram import *
 from telegram.ext import *
-from botlibs.token import TOKEN
-from botlibs.token import creatorid
+import botlibs.settings as botset
 from os import path
-import logging, time, math, pickle
+import logging, time, math, pickle, datetime
 
 ddr = './botdata/'
 
@@ -12,7 +11,7 @@ TIME_FORMAT = "%d %b, %H:%M:%S"
 logging.basicConfig(format = '%(levelname)-8s [%(asctime)s] %(message)s', level = logging.INFO,
 	datefmt = TIME_FORMAT)
 
-botid = int(TOKEN[:TOKEN.index(':')])
+botid = int(botset.TOKEN[:botset.TOKEN.index(':')])
 
 coinEmoji = '🐱'
 
@@ -58,6 +57,7 @@ features_text = """Фичи за {e}:
 defaultUserCarma = 0
 addViaThanks = 1
 transferLimit = 1024
+bonusSize = 10
 
 carma = {}
 msgcount = {}
@@ -71,35 +71,25 @@ def error(bot, update, error):
 	bot.sendMessage(update.message.chat_id, text="Произошла ошибка при обработке этого сообщения", 
 		reply_to_message_id=update.message.message_id)
 		
-def migrate_tov2(bot, update):
-	t = """Миграция данных пользователей завершена.
-----------
-Бот обновлён!
-Что нового в версии 2?
-1) Включен тихий режим
-2) Теперь можно писать боту в ЛС
-3) Убрана фича by @Racc_oon (/pidor)
-4) Карма переименована в Catcoin ({e})
-5) Выпилены длинные команды
-6) Теперь админы могут закрывать сбор кармы
-7) Уведомление о получении ежедневного бонуса
+def whatsnew_v2(bot, update):
+	t = """Бот обновлён!
+Что нового в версии 2.1?
+1) Теперь jobdaily выполняется в определённое время
+2) Небольшие улучшения в коде
 """.format(e=coinEmoji)
-	
-	migrated = []
-	for cid in carma:
-		for usr in carma[cid]:
-			migrated.append(usr)
-			if carma[cid][usr] < -19:
-				carma[cid][usr] = 0
-			else:
-				carma[cid][usr] = carma[cid][usr] + 20
-	
-	logging.info(migrated)
-	jobhourly(None, None)
+
 	bot.sendMessage(update.message.chat_id, text=t)
+	
+def timediff():
+	t = botset.whenspin.split(':')
+	now = datetime.datetime.now()
+	then = datetime.datetime(2016, 1, 1, int(t[0]), int(t[1]))
+	diff = then - now
+	delta = float(diff.seconds) + (diff.microseconds / 10**6)
+	return delta
 
 def payment(chat_id, from_id, to_id, amount, check=True):
-	global carma
+#	global carma
 	fromcarma = carma[chat_id].get(from_id, defaultUserCarma)
 	if from_id != 0 and check and amount > fromcarma:
 		return False
@@ -132,9 +122,12 @@ def getuname(user):
 		
 def inprivate(chat_id, from_id):
 	return (chat_id == from_id)
+	
+def api_inprivate(bot, chat_id):
+	return (bot.getChat(chat_id).type == 'private')
 
 def onStuff(bot, update):
-	global msgcount, unames
+#	global msgcount, unames
 	uid = update.message.from_user.id
 	gid = update.message.chat_id
 	if inprivate(gid, uid):
@@ -146,11 +139,11 @@ def onStuff(bot, update):
 
 
 def jobdaily(bot, job):
-	global msgcount
+#	global msgcount
 	for cid in msgcount:
 		chat = msgcount[cid]
 		sorttop = sorted(chat.items(), key=lambda x: x[1], reverse=True)
-		bonus = 10
+		bonus = bonusSize
 		for u in range(3):
 			try:
 				usrid = sorttop[u][0]
@@ -162,8 +155,25 @@ def jobdaily(bot, job):
 
 	for chat in msgcount:
 		msgcount[chat].clear()
-		
+	
 	logging.info("jobdaily done")
+	
+def loaddata():
+	global msgcount, carma, unames, subscribed, chatadmins, targets
+	if path.exists(ddr + 'msg.pkl'):
+		with open(ddr + 'msg.pkl', 'rb') as f:
+			msgcount = pickle.load(f)
+		with open(ddr + 'carma.pkl', 'rb') as f:
+			carma = pickle.load(f)
+		with open(ddr + 'unames.pkl', 'rb') as f:
+			unames = pickle.load(f)
+		with open(ddr + 'subs.pkl', 'rb') as f:
+			subscribed = pickle.load(f)
+		with open(ddr + 'admins.pkl', 'rb') as f:
+			chatadmins = pickle.load(f)
+		with open(ddr + 'targets.pkl', 'rb') as f:
+			targets = pickle.load(f)
+		logging.info("data loaded.")
 
 def jobhourly(bot, job):
 	with open(ddr + 'msg.pkl', 'wb') as f:
@@ -190,7 +200,7 @@ def start(bot, update, args):
 	except:
 		target = None
 	
-	global carma, msgcount, chatadmins, unames
+#	global carma, msgcount, chatadmins, unames
 	chat_id = update.message.chat_id
 	from_id = update.message.from_user.id
 	
@@ -209,7 +219,7 @@ def start(bot, update, args):
 			return
 
 	if chat_id in carma:
-		if len(args) > 0 and args[0] == 'clear' and update.message.from_user.id == creatorid:
+		if len(args) > 0 and args[0] == 'clear' and update.message.from_user.id == botset.creatorid:
 			bot.sendMessage(chat_id, text="Реинициализация чата...", reply_to_message_id=update.message.message_id)
 		elif len(args) > 0 and args[0] == 'getlink':
 			bot.sendMessage(chat_id,
@@ -263,7 +273,7 @@ def button(bot, update):
 			if int(data[1]) == qfrom:
 				bot.editMessageText(chat_id=chat_id, message_id=msg_id, reply_markup=InlineKeyboardMarkup([]),
 					text="Сбор {e} остановлен владельцем.".format(e=coinEmoji))
-			elif qfrom in chatadmins[chat_id]:
+			elif qfrom in chatadmins[chat_id] or qfrom == botset.creatorid:
 				bot.editMessageText(chat_id=chat_id, message_id=msg_id, reply_markup=InlineKeyboardMarkup([]),
 					text="Сбор {e} остановлен Админом.".format(e=coinEmoji))
 			else:
@@ -283,29 +293,33 @@ def adminpanel(bot, update, args):
 	global carma, msgcount, unames, chatadmins, subscribed
 	chat_id = update.message.chat_id
 	from_id = update.message.from_user.id
-	if from_id not in chatadmins[chat_id] and from_id != creatorid:
+	if from_id != botset.creatorid and from_id not in chatadmins[chat_id]:
 #		bot.sendMessage(chat_id, text="Недостаточно прав", reply_to_message_id=update.message.message_id)
 		return
 
 	if len(args) == 0:
 		bot.sendMessage(chat_id, text="""Available commands:
-flush\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=update.message.message_id)
+flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=update.message.message_id)
 
 	else:
 		cmd = args[0]
 		args.pop(0)
 		if cmd == 'flush':
 			jobhourly(None, None)
-			bot.sendMessage(chat_id, text="jobhourly done", reply_to_message_id=update.message.message_id)
+			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
+			return
+		elif cmd == "reload":
+			loaddata()
+			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 			return
 		elif cmd == 'spin':
-			jobdaily(bot, None)
-			bot.sendMessage(chat_id, text="jobdaily done",  reply_to_message_id=update.message.message_id)
+			jobd.run(bot)
+			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 			return
-		elif cmd == 'dbgvar' and from_id == creatorid:
+		elif cmd == 'dbgvar' and from_id == botset.creatorid:
 			bot.sendMessage(chat_id, text='{}'.format(eval(' '.join(args))))
 			return
-		elif cmd == 'shell' and from_id == creatorid:
+		elif cmd == 'shell' and from_id == botset.creatorid:
 			eval(' '.join(args))
 			return
 		elif cmd == 'reinit':
@@ -493,7 +507,7 @@ def pay(bot, update, args):
 		arg = int(arg % transferLimit)
 	
 	if toid == botid:
-		toid = creatorid
+		toid = botset.creatorid
 
 	if not payment(chat_id, fromid, toid, arg, True):
 		bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji),
@@ -514,7 +528,7 @@ def thnx(bot, update):
 #		bot.sendMessage(chat_id, text="Жулик, не воруй!", reply_to_message_id=update.message.message_id)
 		return
 	elif u.id == botid:
-		u.id = creatorid
+		u.id = botset.creatorid
 	payment(chat_id, 0, u.id, 1)
 	sendnotif(bot, 0, u.id, 1)
 #	bot.sendMessage(chat_id, text="Добавлено +1 {e} {0}".format(getuname(u), e=coinEmoji),
@@ -570,8 +584,9 @@ def whois(bot, update, args):
 		return
 
 	who = bot.getChat(whoid)
-	bot.sendMessage(update.message.chat_id, text="Whois {}: Username: {}, FirstName: {}, LastName: {}".format(who.id,
-		who.username, who.first_name, who.last_name), reply_to_message_id=update.message.message_id)
+	bot.sendMessage(update.message.chat_id, 
+		text="Whois {}: Username: {}, FirstName: {}, LastName: {}, ChatTitle: {}".format(who.id,
+		who.username, who.first_name, who.last_name, who.title), reply_to_message_id=update.message.message_id)
 		
 def perdolingtime(bot, update):
 	bot.sendMessage(update.message.chat_id, text="It's perdoling time!", reply_to_message_id=update.message.message_id)
@@ -579,14 +594,18 @@ def perdolingtime(bot, update):
 def codingtime(bot, update):
 	bot.sendMessage(update.message.chat_id, text="It's coding time!", reply_to_message_id=update.message.message_id)
 
-updater = Updater(TOKEN)
-del TOKEN
+updater = Updater(botset.TOKEN)
+del botset.TOKEN
+
+loaddata()
 
 jobs = updater.job_queue
 lbot = updater.bot
 
+jobd = Job(jobdaily, 86400.0)
+
 jobs.put(Job(jobhourly, 3600.0))
-jobs.put(Job(jobdaily, 86400.0))
+jobs.put(jobd, next_t=timediff())
 
 botuname = lbot.getMe().username
 
@@ -639,21 +658,6 @@ dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
 dp.add_handler(MessageHandler([], onStuff))
 ##########
 dp.add_error_handler(error)
-
-if path.exists(ddr + 'msg.pkl'):
-	with open(ddr + 'msg.pkl', 'rb') as f:
-		msgcount = pickle.load(f)
-	with open(ddr + 'carma.pkl', 'rb') as f:
-		carma = pickle.load(f)
-	with open(ddr + 'unames.pkl', 'rb') as f:
-		unames = pickle.load(f)
-	with open(ddr + 'subs.pkl', 'rb') as f:
-		subscribed = pickle.load(f)
-	with open(ddr + 'admins.pkl', 'rb') as f:
-		chatadmins = pickle.load(f)
-	with open(ddr + 'targets.pkl', 'rb') as f:
-		targets = pickle.load(f)
-	logging.info("data loaded.")
 
 updater.start_polling()
 updater.idle()
