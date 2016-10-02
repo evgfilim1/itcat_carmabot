@@ -26,3 +26,7 @@ Simply type in your shell:
 ```bash 
 $ python3 bot.py
 ```
+### Setting up bot in chat:
+Link it to yours chat using ```
+/start getlink
+```
