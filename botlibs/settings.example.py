@@ -15,3 +15,9 @@ creatorid = 123456987
 # it should show current system time in user-friendly variant, 
 # compare it with your current local time and set needed value
 whenspin = "21:00"
+
+# Coin emoji to use in bot
+coin = '🐱'
+
+# Message emoji to use in bot
+msg = '✉'
