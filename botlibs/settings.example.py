@@ -16,5 +16,5 @@ creatorid = 123456987
 # compare it with your current local time and set needed value
 whenspin = "21:00"
 
-#Coin emoji
+# Coin emoji to use in bot
 coin = '🐱'
