@@ -13,7 +13,7 @@ logging.basicConfig(format = '%(levelname)-8s [%(asctime)s] %(message)s', level 
 
 botid = int(botset.TOKEN[:botset.TOKEN.index(':')])
 
-coinEmoji = '🐱'
+coinEmoji = botset.coin
 
 help_text = """Привет. Я бот, который считает catcoin'ы (обозначаются как {e}) в чате :)
 /st — узнать статистику пользователя
