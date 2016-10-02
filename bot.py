@@ -4,7 +4,7 @@ from telegram.ext import *
 import botlibs.settings as botset
 from os import path
 import logging, time, math, pickle, datetime
-
+from botlibs.locale import *
 ddr = './botdata/'
 
 TIME_FORMAT = "%d %b, %H:%M:%S"
@@ -15,44 +15,7 @@ botid = int(botset.TOKEN[:botset.TOKEN.index(':')])
 
 coinEmoji = botset.coin
 
-help_text = """Привет. Я бот, который считает catcoin'ы (обозначаются как {e}) в чате :)
-/st — узнать статистику пользователя
-/top — топ пользователей по {e}
-/mtop — топ пользователей по сообщениям
-/pay — перевести {e}
-/ask — попросить {e}
-/tx или "++" — +1 {e} для другого человека
-/sub или /subscr — подписаться на изменения {e} (сообщения приходят в ЛС)
-Для отписки — /unsub или /unsubscr
 
-Каждый день самым активным пользователям чата — призы!
-За 1 место — +10 {e}
-За 2 место — +5 {e}
-За 3 место — +2 {e}
-_____
-Ограничение всех трансферов: [0..1023]
-Инфо о боте —> /about
-Команды администрирования —> /admin
-Вскоре будут доступны некоторые плюшки с тратой catcoin'ов, а пока, зарабатывайте их!""".format(e=coinEmoji)
-
-hid_text = """Команды, не относящиеся непосредственно к боту:
-/uid — узнать UID и GID
-/whois — узнать, кто владелец определённого ID
-Я могу тебе сказать, который сейчас час! :)
-"""
-
-about_text = """Я бот, который считает {e} в чате :)
-По всем вопросам, обращайся к моему создателю —> @evgfilim1
-Если вы хотите помочь написанию бота, вам сюда —> @itcat_carma""".format(e=coinEmoji)
-
-features_text = """Фичи за {e}:
-Название - Цена - Как получить
-Отправка сообщения во время бана - 5 - /feature 1
-Передать всем привет - 1 - /feature 2
-Получить подарок на праздник - (-5) - /feature 3
-Устроить раздачу - 50 - /feature 4
-Испытать удачу - 10 - /feature 777
-""".format(e=coinEmoji)
 
 defaultUserCarma = 0
 addViaThanks = 1
