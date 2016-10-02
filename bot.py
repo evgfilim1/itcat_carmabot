@@ -299,7 +299,7 @@ def adminpanel(bot, update, args):
 
 	if len(args) == 0:
 		bot.sendMessage(chat_id, text="""Available commands:
-flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=update.message.message_id)
+flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma\restart""", reply_to_message_id=update.message.message_id)
 
 	else:
 		cmd = args[0]
@@ -371,7 +371,8 @@ flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message
 				return
 			toid = 0
 			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
-
+		elif cmd == 'restart':
+			os.execv(__file__, sys.argv) #Должно сработать
 		payment(chat_id, fromid, toid, amount)
 		sendnotif(bot, fromid, toid, amount)
 
