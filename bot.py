@@ -639,7 +639,7 @@ dp.add_handler(CommandHandler('pay', pay, pass_args=True))
 ##########
 # dp.add_handler(CommandHandler('thanks', thnx))
 dp.add_handler(CommandHandler('tx', thnx))
-dp.add_handler(RegexHandler('^\+{2,}(.+)?', thnx))
+dp.add_handler(RegexHandler('^\+{1,}(.+)?', thnx))
 ##########
 dp.add_handler(CommandHandler('subscr', subscr))
 dp.add_handler(CommandHandler('sub', subscr))
@@ -650,7 +650,7 @@ dp.add_handler(CommandHandler('unsub', unsubscr))
 dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True))
 ##########
 dp.add_handler(RegexHandler('^What time is it\?$', codingtime))
-dp.add_handler(RegexHandler('^Wh\u0430t time is it\?$', perdolingtime))
+dp.add_handler(RegexHandler('^What timе is it\?$', perdolingtime))
 ##########
 dp.add_handler(CallbackQueryHandler(button))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
