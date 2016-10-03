@@ -593,6 +593,12 @@ def perdolingtime(bot, update):
 
 def codingtime(bot, update):
 	bot.sendMessage(update.message.chat_id, text="It's coding time!", reply_to_message_id=update.message.message_id)
+	
+def problemstime(bot, update):
+	bot.sendMessage(update.message.chat_id, text="It's Levent problems time!", reply_to_message_id=update.message.message_id)
+	
+def floodtime(bot, update):
+	bot.sendMessage(update.message.chat_id, text="It's flooding time!", reply_to_message_id=update.message.message_id)
 
 updater = Updater(botset.TOKEN)
 del botset.TOKEN
@@ -651,6 +657,8 @@ dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True))
 ##########
 dp.add_handler(RegexHandler('^What time is it\?$', codingtime))
 dp.add_handler(RegexHandler('^What timе is it\?$', perdolingtime))
+dp.add_handler(RegexHandler('^Whаt time is it\?$', floodtime))
+dp.add_handler(RegexHandler('^What  time is it\?$', problemstime))
 ##########
 dp.add_handler(CallbackQueryHandler(button))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
