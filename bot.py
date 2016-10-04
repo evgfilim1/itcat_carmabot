@@ -667,7 +667,7 @@ dp.add_handler(MessageHandler([], onStuff))
 ##########
 dp.add_error_handler(error)
 
-updater.start_polling()
+updater.start_polling(timeout=10, clean=True)
 updater.idle()
 
 jobhourly(None, None)
