@@ -71,11 +71,10 @@ def error(bot, update, error):
 	bot.sendMessage(update.message.chat_id, text="Произошла ошибка при обработке этого сообщения", 
 		reply_to_message_id=update.message.message_id)
 		
-def whatsnew_v2(bot, update):
+def whatsnew(bot, update):
 	t = """Бот обновлён!
-Что нового в версии 2.1?
-1) Теперь jobdaily выполняется в определённое время
-2) Небольшие улучшения в коде
+Что нового в версии 2.2?
+1) Исправлен баг (спасибо @metroyanno)
 """.format(e=coinEmoji)
 
 	bot.sendMessage(update.message.chat_id, text=t)
@@ -515,7 +514,7 @@ def pay(bot, update, args):
 	else:
 		bot.sendMessage(chat_id, text="{} {e} переведено.".format(arg, e=coinEmoji),
 			reply_to_message_id=update.message.message_id)
-	sendnotif(bot, fromid, toid, arg)
+		sendnotif(bot, fromid, toid, arg)
 		
 def thnx(bot, update):
 	chat_id = update.message.chat_id
@@ -667,7 +666,8 @@ dp.add_handler(MessageHandler([], onStuff))
 ##########
 dp.add_error_handler(error)
 
-updater.start_polling(timeout=10, clean=True)
+updater.start_polling(timeout=10)
+#updater.start_polling(timeout=10, clean=True)
 updater.idle()
 
 jobhourly(None, None)
