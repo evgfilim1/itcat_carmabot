@@ -19,7 +19,9 @@ msgEmoji = botset.msg
 help_text = """Привет. Я бот, который считает catcoin'ы (обозначаются как {e}) в чате :)
 /st — узнать статистику пользователя
 /top — топ пользователей по {e}
-/mtop — топ пользователей по сообщениям
+/mtop — топ пользователей по {m}
+/ft или /feature — потратить карму
+/gf или /gifter — устроить раздачу
 /pay — перевести {e}
 /ask — попросить {e}
 /tx или "++" — +1 {e} для другого человека
@@ -34,12 +36,12 @@ _____
 Ограничение всех трансферов: [0..1023]
 Инфо о боте —> /about
 Команды администрирования —> /admin
-Вскоре будут доступны некоторые плюшки с тратой catcoin'ов, а пока, зарабатывайте их!""".format(e=coinEmoji)
+Вскоре будут доступны некоторые плюшки с тратой catcoin'ов, а пока, зарабатывайте их!""".format(e=coinEmoji, m=msgEmoji)
 
 hid_text = """Команды, не относящиеся непосредственно к боту:
 /uid — узнать UID и GID
 /whois — узнать, кто владелец определённого ID
-Я могу тебе сказать, который сейчас час! :)
+%%Место для вашей фичи, всего за 5 котомонет%%, обращаться к @evgfilim1
 """
 
 about_text = """Я бот, который считает {e} в чате :)
@@ -50,9 +52,9 @@ features_text = """Фичи за {e}:
 Название - Цена - Как получить
 Отправка сообщения во время бана - 5 - /feature 1
 Передать всем привет - 1 - /feature 2
-Получить подарок на праздник - (-5) - /feature 3
-Устроить раздачу - 50 - /feature 4
-Испытать удачу - 10 - /feature 777
+Получить подарок на праздник - (-10) - /feature 3
+Получить старт кит - 0 - /feature 4
+Испытать удачу - 0||5 - /feature 777
 """.format(e=coinEmoji)
 
 defaultUserCarma = 0
@@ -60,25 +62,48 @@ addViaThanks = 1
 transferLimit = 1024
 bonusSize = 10
 
+ftHolylist = {(30, 12): "С днём рождения IT-Koта!", (31, 12): "С наступающим Новым годом!",
+	(1, 1): "С Новым годом!!!", (23, 2): "С днём защитника Отечества!", (1, 3): "С днём кошек!",
+	(8, 3): "С Восьмым марта!", (4, 4): "? ???? ??????????!", (1, 5): "С днём Весны и Труда!", 
+	(9, 5): "С днём Победы!", (12, 6): "С днём России!", (1, 9): "С днём знаний!!1)0)))",
+	(13, 9): "while True: print('С праздником, программисты')", (5, 10): "С днём учителя!",
+	(4, 11): "С днём народного единства!", (6, 11): "...тестовый праздник..."}
+
+ftStartkit = {}
+ftTestluck = {}
+ftHolidaygot = {}
+
 carma = {}
 msgcount = {}
 unames = {}
 chatadmins = {}
 subscribed = []
 targets = {}
+giftbank = {}
 
 def error(bot, update, error):
 	logging.warning('Update "{0}" caused error "{1}"'.format(update, error))
 	bot.sendMessage(update.message.chat_id, text="Произошла ошибка при обработке этого сообщения", 
 		reply_to_message_id=update.message.message_id)
 		
-def whatsnew_v2(bot, update):
+def whatsnew_v3(bot, update):
 	t = """Бот обновлён!
-Что нового в версии 2.1?
-1) Теперь jobdaily выполняется в определённое время
-2) Небольшие улучшения в коде
-""".format(e=coinEmoji)
+Что будет нового в версии 3?
+1) Добавлены фичи за карму (наконец-то!)
+2) Убраны фичи "What time is it?"
+3) Теперь все ожидающие сообщения после запуска бота будут игнорированы
+4) Добавлен раздатчик (/gifter)
+5) Теперь для обозначения сообщений в статистике используется эмодзи ({m})
+""".format(m=msgEmoji)
 
+	tm = ''
+	for chatid in carma:
+		tm += str(chatid)
+		ftHolidaygot[chatid] = []
+		ftTestluck[chatid] = []
+		ftStartkit[chatid] = []
+
+	logging.info(tm)
 	bot.sendMessage(update.message.chat_id, text=t)
 	
 def timediff():
@@ -101,7 +126,7 @@ def payment(chat_id, from_id, to_id, amount, check=True):
 
 	return True
 
-def sendnotif(bot, from_id, to_id, amount):
+def sendnotif(bot, from_id, to_id, amount, *, txfrom=0, holyday=False):
 	if from_id != 0 and from_id in subscribed:
 		capt = ''
 		if to_id != 0:
@@ -114,6 +139,17 @@ def sendnotif(bot, from_id, to_id, amount):
 		if from_id != 0:
 			capt = 'пользователем {}'.format(unames.get(from_id, 'Unknown user {}'.format(from_id)))
 		bot.sendMessage(to_id, text="Вам было добавлено {0} {e} {1}".format(amount, capt, e=coinEmoji))
+		
+	if botset.useLoggingChannel:
+		te = "{} -> {} ({})"
+		f = (from_id, to_id, amount)
+		if txfrom != 0:
+			te = "{} by tx -> {}"
+			f = (txfrom, to_id)
+		elif holyday:
+			te = "{} by holyday -> {}"
+			f = ("bank", to_id)
+		bot.sendMessage(botset.loggingChannel, text=te.format(*f))
 
 def getuname(user):
 	if bool(user.username):
@@ -216,6 +252,7 @@ def start(bot, update, args):
 			return
 		else:
 			bot.sendMessage(chat_id, text="""Готово, теперь вы можете получать уведомления.
+
 Если вы хотите установить чат по умолчанию в ЛС (чтобы я реагировал на команды, как в чате), напишите в том чате /start getlink""")
 			return
 
@@ -393,9 +430,8 @@ def mystat(bot, update):
 			return
 	
 	text = """Статистика пользователя {u}:
-Catcoin'ы: {c}
-Сообщений за день: {m}""".format(u=getuname(uu), c=carma[chat_id].get(uid, defaultUserCarma), 
-	m=msgcount[chat_id].get(uid, 0))
+{e}: {c}, {m}: {mc}""".format(u=getuname(uu), c=carma[chat_id].get(uid, defaultUserCarma), 
+	mc=msgcount[chat_id].get(uid, 0), e=coinEmoji, m=msgEmoji)
 
 	try:
 		bot.sendMessage(update.message.from_user.id, text=text)
@@ -420,7 +456,8 @@ def topstat(bot, update):
 			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
 		except IndexError:
 			break
-		msg += "{}: {} сообщений, {} {e}\n".format(un, msgcount[chat_id].get(sorttop[i][0], 0), sorttop[i][1], e=coinEmoji)
+		msg += "{}: {} {m}, {} {e}\n".format(un, msgcount[chat_id].get(sorttop[i][0], 0), sorttop[i][1],
+			e=coinEmoji, m=msgEmoji)
 
 	try:
 		bot.sendMessage(update.message.from_user.id, text=msg)
@@ -445,8 +482,8 @@ def mtopstat(bot, update):
 			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
 		except IndexError:
 			break
-		msg += "{}: {} сообщений, {} {e}\n".format(un, sorttop[i][1], carma[chat_id].get(sorttop[i][0],
-			defaultUserCarma), e=coinEmoji)
+		msg += "{}: {} {m}, {} {e}\n".format(un, sorttop[i][1], carma[chat_id].get(sorttop[i][0],
+			defaultUserCarma), e=coinEmoji, m=msgEmoji)
 	try:
 		bot.sendMessage(update.message.from_user.id, text=msg)
 	except:
@@ -535,6 +572,47 @@ def thnx(bot, update):
 #	bot.sendMessage(chat_id, text="Добавлено +1 {e} {0}".format(getuname(u), e=coinEmoji),
 #		reply_to_message_id=update.message.message_id)
 
+def feat(bot, update, args):
+	chat_id = update.message.chat_id
+	from_id = update.message.from_user.id
+	if len(args) == 0:
+		bot.sendMessage(chat_id, text=features_text, reply_to_message_id=update.message.message_id)
+	else:
+		try:
+			arg = int(args[0])
+		except:
+			arg = -1
+		
+		if arg == 0:
+			bot.sendMessage(chat_id, text="As you're programmer, I'll give you 1 catcoin")
+			payment(chat_id, 0, from_id, 1)
+			sendnotif(bot, 0, from_id, 1)
+		elif arg == 1:
+			None
+		elif arg == 2:
+			None
+		elif arg == 3:
+			today = datetime.datetime.now()
+			nohd = "Сегодня нет праздника!"
+			capt = ftHolylist.get((today.day, today.month), nohd)
+			amount = 10
+			if capt != nohd:
+				if from_id in ftHolidaygot[chat_id]:
+					bot.sendMessage(chat_id, text="Ты уже брал подарок!", 
+						reply_to_message_id=update.message.message_id)
+					return
+				ftHolidaygot[chat_id].append(from_id)
+				payment(chat_id, 0, from_id, amount)
+				sendnotif(bot, 0, from_id, amount)
+			
+			bot.sendMessage(chat_id, text=capt, reply_to_message_id=update.message.message_id)
+		elif arg == 4:
+			None
+		elif arg == 777:
+			None
+		else:
+			False
+
 def statusupdate(bot, update):
 	if not bool(update.message.new_chat_member):
 		return
@@ -546,17 +624,15 @@ def subscr(bot, update):
 	from_user = update.message.from_user
 	if not from_user.id in subscribed:
 		try:
-			bot.sendMessage(from_user.id, text='Подписка оформлена')
+			bot.sendMessage(from_user.id, text='Успешно подписаны на обновления {e}'.format(e=coinEmoji))
 		except:
 			bot.sendMessage(chat_id, text="Невозможно подписаться на обновления. Напишите в ЛС боту",
 				reply_to_message_id=update.message.message_id)
 			return
 		subscribed.append(from_user.id)
-		bot.sendMessage(chat_id, text="""Успешно подписаны на обновления {e}.
-!Внимание! Если вы не написали боту в ЛС, вы не сможете получать уведомления""".format(e=coinEmoji),
-			reply_to_message_id=update.message.message_id)
 	else:
-		bot.sendMessage(chat_id, text="Вы уже подписаны на обновления.", reply_to_message_id=update.message.message_id)
+		#bot.sendMessage(chat_id, text="Вы уже подписаны на обновления.", reply_to_message_id=update.message.message_id)
+		return
 
 def unsubscr(bot, update):
 	chat_id = update.message.chat_id
@@ -588,12 +664,6 @@ def whois(bot, update, args):
 	bot.sendMessage(update.message.chat_id, 
 		text="Whois {}: Username: {}, FirstName: {}, LastName: {}, ChatTitle: {}".format(who.id,
 		who.username, who.first_name, who.last_name, who.title), reply_to_message_id=update.message.message_id)
-		
-def perdolingtime(bot, update):
-	bot.sendMessage(update.message.chat_id, text="It's perdoling time!", reply_to_message_id=update.message.message_id)
-
-def codingtime(bot, update):
-	bot.sendMessage(update.message.chat_id, text="It's coding time!", reply_to_message_id=update.message.message_id)
 
 updater = Updater(botset.TOKEN)
 del botset.TOKEN
@@ -625,6 +695,9 @@ dp.add_handler(CommandHandler('uid', uid))
 ##########
 dp.add_handler(CommandHandler('whois', whois, pass_args=True))
 ##########
+dp.add_handler(CommandHandler('feature', feat, pass_args=True))
+dp.add_handler(CommandHandler('ft', feat, pass_args=True))
+##########
 # dp.add_handler(CommandHandler('mystat', mystat, pass_args=True))
 dp.add_handler(CommandHandler('st', mystat))
 ##########
@@ -650,8 +723,7 @@ dp.add_handler(CommandHandler('unsub', unsubscr))
 ##########
 dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True))
 ##########
-dp.add_handler(RegexHandler('^What time is it\?$', codingtime))
-dp.add_handler(RegexHandler('^Wh\u0430t time is it\?$', perdolingtime))
+# There is empty :(
 ##########
 dp.add_handler(CallbackQueryHandler(button))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
