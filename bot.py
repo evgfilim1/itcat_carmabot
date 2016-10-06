@@ -228,9 +228,10 @@ def jobhourly(bot, job):
 	logging.info("data saved.")
 
 def start(bot, update, args):
-	text = update.message.text.split()[0].split('@')
-	if not ((len(text) == 2 and text[1] == botuname) or (len(text) == 1)):
-		return
+	if not (len(args) == 1 and args[0] == 'joingroup'):
+		text = update.message.text.split()[0].split('@')
+		if not ((len(text) == 2 and text[1] == botuname) or (len(text) == 1)):
+			return
 	
 	try:
 		target = int(args[0])
@@ -245,7 +246,7 @@ def start(bot, update, args):
 		if target:
 			ct = bot.getChat(target)
 			if ct.type == 'private':
-				bot.sendMessage(chat_id, text="ЛС? Я не умею считать Catcoin'ы в ЛС.")
+				bot.sendMessage(chat_id, text="Я не умею считать Catcoin'ы в ЛС.")
 				return
 			targets.update({from_id: target})
 			bot.sendMessage(chat_id, text="'{}' установлен как чат по умолчанию".format(ct.title))
@@ -617,7 +618,7 @@ def statusupdate(bot, update):
 	if not bool(update.message.new_chat_member):
 		return
 	if update.message.new_chat_member.id == botid:
-		start(bot, update, [])
+		start(bot, update, ['joingroup'])
 
 def subscr(bot, update):
 	chat_id = update.message.chat_id
