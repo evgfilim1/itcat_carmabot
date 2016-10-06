@@ -16,6 +16,11 @@ creatorid = 123456987
 # compare it with your current local time and set needed value
 whenspin = "21:00"
 
+# Change this value to use logging channel for your bot
+useLoggingChannel = False
+# Logging channel name
+loggingChannel = '@channelname'
+
 # Coin emoji to use in bot
 coin = '🐱'
 
