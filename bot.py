@@ -588,7 +588,13 @@ def feat(bot, update, args):
 			payment(chat_id, 0, from_id, 1)
 			sendnotif(bot, 0, from_id, 1)
 		elif arg == 1:
-			None
+			if inprivate(chat_id, from_id):
+				chat_id_new = targets.get(chat_id, 0)
+				if not payment(chat_id_new, from_id, 0, 5, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					bot.sendMessage(chat_id_new, text="{e} пишет:\n {h}".format(e=getuname(update.message.from_user), h=update.message.text))
+					sendnotif(bot, from_id, 0, 5)
 		elif arg == 2:
 			None
 		elif arg == 3:
