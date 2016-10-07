@@ -590,7 +590,21 @@ def feat(bot, update, args):
 		elif arg == 1:
 			None
 		elif arg == 2:
-			None
+			if inprivate(chat_id, from_id):
+				chat_id_new = targets.get(chat_id, 0)
+				if chat_id_new == 0:
+					bot.sendMessage(msg.from_user.id, text="Вы не установили связь с чатом. /start для подробностей")
+				if not payment(chat_id_new, from_id, 0, 1, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					bot.sendMessage(chat_id_new, text="@{e} передает всем привет!".format(e=getuname(update.message.from_user)))
+					sendnotif(bot, from_id, 0, 1)
+			else:
+				if not payment(chat_id, from_id, 0, 1, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					bot.sendMessage(chat_id, text="@{e} передает всем привет!".format(e=getuname(update.message.from_user)))
+					sendnotif(bot, from_id, 0, 1)
 		elif arg == 3:
 			today = datetime.datetime.now()
 			nohd = "Сегодня нет праздника!"
