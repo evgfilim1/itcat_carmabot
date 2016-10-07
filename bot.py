@@ -588,7 +588,22 @@ def feat(bot, update, args):
 			payment(chat_id, 0, from_id, 1)
 			sendnotif(bot, 0, from_id, 1)
 		elif arg == 1:
-			None
+			if inprivate(chat_id, from_id):
+				chat_id_new = targets.get(chat_id, 0)
+				if chat_id_new == 0:
+					bot.sendMessage(msg.from_user.id, text="Вы не установили связь с чатом. /start для подробностей")
+				if not payment(chat_id_new, from_id, 0, 5, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					captstr = '(ничего не написал)'
+					if len(args) > 1:
+						captstr = ''
+						args.pop(0)
+						captstr += ' '.join(args)
+					bot.sendMessage(chat_id_new, text="@{e}: {h}".format(e=getuname(update.message.from_user), h=captstr))
+					sendnotif(bot, from_id, 0, 5)
+			else:
+				bot.sendMessage(chat_id, text="Напиши мне в ЛС.", reply_to_message_id=update.message.message_id)
 		elif arg == 2:
 			None
 		elif arg == 3:
