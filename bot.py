@@ -67,7 +67,7 @@ ftHolylist = {(30, 12): "С днём рождения IT-Koта!", (31, 12): "С
 	(8, 3): "С Восьмым марта!", (4, 4): "? ???? ??????????!", (1, 5): "С днём Весны и Труда!", 
 	(9, 5): "С днём Победы!", (12, 6): "С днём России!", (1, 9): "С днём знаний!!1)0)))",
 	(13, 9): "while True: print('С праздником, программисты')", (5, 10): "С днём учителя!",
-	(4, 11): "С днём народного единства!", (6, 11): "...тестовый праздник..."}
+	(4, 11): "С днём народного единства!", (7, 10): "...тестовый праздник..."}
 
 ftStartkit = {}
 ftTestluck = {}
@@ -126,7 +126,7 @@ def payment(chat_id, from_id, to_id, amount, check=True):
 
 	return True
 
-def sendnotif(bot, from_id, to_id, amount, *, txfrom=0, holyday=False):
+def sendnotif(bot, from_id, to_id, amount, *, txfrom=0, bank=False, tbank=False, bankcapt=""): #fix
 	if from_id != 0 and from_id in subscribed:
 		capt = ''
 		if to_id != 0:
@@ -146,14 +146,17 @@ def sendnotif(bot, from_id, to_id, amount, *, txfrom=0, holyday=False):
 		if txfrom != 0:
 			te = "{} by tx -> {}"
 			f = (txfrom, to_id)
-		elif holyday:
-			te = "{} by holyday -> {}"
-			f = ("bank", to_id)
+		elif bank:
+			te = "bank by {} -> {}"
+			f = (bankcapt, to_id)
+		elif tbank:
+			te = "{} -> bank by {}"
+			f = (from_id, bankcapt)
 		bot.sendMessage(botset.loggingChannel, text=te.format(*f))
 
 def getuname(user):
 	if bool(user.username):
-		return user.username
+		return '@' + user.username
 	else:
 		return user.first_name
 		
@@ -187,7 +190,7 @@ def jobdaily(bot, job):
 			except IndexError:
 				break
 			carma[cid][usrid] = carma[cid].get(usrid, 0) + bonus
-			sendnotif(bot, 0, usrid, bonus)
+			sendnotif(bot, 0, usrid, bonus, bank=True, bankcapt="daily gift")
 			bonus = bonus // 2
 
 	for chat in msgcount:
@@ -412,7 +415,7 @@ flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message
 			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 
 		payment(chat_id, fromid, toid, amount)
-		sendnotif(bot, fromid, toid, amount)
+		sendnotif(bot, fromid, toid, amount, bank=True, bankcapt="admin")
 
 def mystat(bot, update):
 	msg = update.message
@@ -457,7 +460,7 @@ def topstat(bot, update):
 			un = unames.get(sorttop[i][0], "Unknown user {}".format(sorttop[i][0]))
 		except IndexError:
 			break
-		msg += "{}: {} {m}, {} {e}\n".format(un, msgcount[chat_id].get(sorttop[i][0], 0), sorttop[i][1],
+		msg += "{}: {} {e}, {} {m}\n".format(un, sorttop[i][1], msgcount[chat_id].get(sorttop[i][0], 0),
 			e=coinEmoji, m=msgEmoji)
 
 	try:
@@ -569,7 +572,7 @@ def thnx(bot, update):
 	elif u.id == botid:
 		u.id = botset.creatorid
 	payment(chat_id, 0, u.id, 1)
-	sendnotif(bot, 0, u.id, 1)
+	sendnotif(bot, 0, u.id, 1, txfrom=update.message.from_user.id)
 #	bot.sendMessage(chat_id, text="Добавлено +1 {e} {0}".format(getuname(u), e=coinEmoji),
 #		reply_to_message_id=update.message.message_id)
 
@@ -584,12 +587,29 @@ def feat(bot, update, args):
 		except:
 			arg = -1
 		
-		if arg == 0:
-			bot.sendMessage(chat_id, text="As you're programmer, I'll give you 1 catcoin")
-			payment(chat_id, 0, from_id, 1)
-			sendnotif(bot, 0, from_id, 1)
-		elif arg == 1:
-			None
+		if arg == 1:
+			if not inprivate(chat_id, from_id):
+				#bot.sendMessage(chat_id, text="Здесь это делать бессмысленно", 
+				#	reply_to_message_id=update.message.message_id)
+				return
+			newchat = targets.get(from_id, 0)
+			if newchat == 0:
+				bot.sendMessage(chat_id, text="""Чат по умолчанию не установлен.
+Попроси кого-нибудь из чата выполнить команду "/start getlink" и переслать тебе.""")
+				return
+			args.pop(0)
+			if len(args) == 0:
+				bot.sendMessage(chat_id, text="Бессмысленно отправлять пустое сообщение.")
+				return
+			txt = ' '.join(args)
+			if not payment(newchat, from_id, 0, 5, True):
+				bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji),
+					reply_to_message_id=update.message.message_id)
+				return
+			bot.sendMessage(newchat, text="Сообщение от {u}:\n{m}".format(u=getuname(update.message.from_user),
+				m=txt))
+			bot.sendMessage(chat_id, text="Сообщение отправлено")
+			sendnotif(bot, from_id, 0, 5, tbank=True, bankcapt="ft_1")
 		elif arg == 2:
 			None
 		elif arg == 3:
@@ -604,7 +624,7 @@ def feat(bot, update, args):
 					return
 				ftHolidaygot[chat_id].append(from_id)
 				payment(chat_id, 0, from_id, amount)
-				sendnotif(bot, 0, from_id, amount)
+				sendnotif(bot, 0, from_id, amount, bank=True, bankcapt="holiday")
 			
 			bot.sendMessage(chat_id, text=capt, reply_to_message_id=update.message.message_id)
 		elif arg == 4:
