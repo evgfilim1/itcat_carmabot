@@ -588,30 +588,40 @@ def feat(bot, update, args):
 			arg = -1
 		
 		if arg == 1:
-			if not inprivate(chat_id, from_id):
-				#bot.sendMessage(chat_id, text="Здесь это делать бессмысленно", 
-				#	reply_to_message_id=update.message.message_id)
-				return
-			newchat = targets.get(from_id, 0)
-			if newchat == 0:
-				bot.sendMessage(chat_id, text="""Чат по умолчанию не установлен.
-Попроси кого-нибудь из чата выполнить команду "/start getlink" и переслать тебе.""")
-				return
-			args.pop(0)
-			if len(args) == 0:
-				bot.sendMessage(chat_id, text="Бессмысленно отправлять пустое сообщение.")
-				return
-			txt = ' '.join(args)
-			if not payment(newchat, from_id, 0, 5, True):
-				bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji),
-					reply_to_message_id=update.message.message_id)
-				return
-			bot.sendMessage(newchat, text="Сообщение от {u}:\n{m}".format(u=getuname(update.message.from_user),
-				m=txt))
-			bot.sendMessage(chat_id, text="Сообщение отправлено")
-			sendnotif(bot, from_id, 0, 5, tbank=True, bankcapt="ft_1")
+			if inprivate(chat_id, from_id):
+				chat_id_new = targets.get(chat_id, 0)
+				if chat_id_new == 0:
+					bot.sendMessage(msg.from_user.id, text="Вы не установили связь с чатом. /start для подробностей")
+					return
+				if not payment(chat_id_new, from_id, 0, 5, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					captstr = '(ничего не написал)'
+					if len(args) > 1:
+						captstr = ''
+						args.pop(0)
+						captstr += ' '.join(args)
+					bot.sendMessage(chat_id_new, text="{e}: {h}".format(e=getuname(update.message.from_user), h=captstr))
+					bot.sendMessage(chat_id, text="Сообщение отправлено", reply_to_message_id=update.message.message_id)
+					sendnotif(bot, from_id, 0, 5)
+			else:
+				bot.sendMessage(chat_id, text="Напиши мне в ЛС.", reply_to_message_id=update.message.message_id)
 		elif arg == 2:
-			None
+			if inprivate(chat_id, from_id):
+				chat_id_new = targets.get(chat_id, 0)
+				if chat_id_new == 0:
+					bot.sendMessage(msg.from_user.id, text="Вы не установили связь с чатом. /start для подробностей")
+				if not payment(chat_id_new, from_id, 0, 1, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					bot.sendMessage(chat_id_new, text="{e} передает всем привет!".format(e=getuname(update.message.from_user)))
+					sendnotif(bot, from_id, 0, 1)
+			else:
+				if not payment(chat_id, from_id, 0, 1, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					bot.sendMessage(chat_id, text="{e} передает всем привет!".format(e=getuname(update.message.from_user)))
+					sendnotif(bot, from_id, 0, 1)
 		elif arg == 3:
 			today = datetime.datetime.now()
 			nohd = "Сегодня нет праздника!"
