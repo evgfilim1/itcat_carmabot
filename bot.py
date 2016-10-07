@@ -3,6 +3,7 @@ from telegram import *
 from telegram.ext import *
 import botlibs.settings as botset
 from os import path
+from random import randint, choice
 import logging, time, math, pickle, datetime
 
 ddr = './botdata/'
@@ -96,15 +97,17 @@ def whatsnew_v3(bot, update):
 5) Теперь для обозначения сообщений в статистике используется эмодзи ({m})
 """.format(m=msgEmoji)
 
+	bot.sendMessage(update.message.chat_id, text=t)
+	
+def tempdef():
 	tm = ''
 	for chatid in carma:
-		tm += str(chatid)
+		tm += "{} ".format(chatid)
 		ftHolidaygot[chatid] = []
 		ftTestluck[chatid] = []
 		ftStartkit[chatid] = []
-
+	
 	logging.info(tm)
-	bot.sendMessage(update.message.chat_id, text=t)
 	
 def timediff():
 	t = botset.whenspin.split(':')
@@ -126,32 +129,36 @@ def payment(chat_id, from_id, to_id, amount, check=True):
 
 	return True
 
-def sendnotif(bot, from_id, to_id, amount, *, txfrom=0, bank=False, tbank=False, bankcapt=""): #fix
+def sendnotif(bot, from_id, to_id, amount, chat_id, *, txfrom=0, bankcapt=""):
+	chatinfo = bot.getChat(chat_id)
+	chat_title = chatinfo.title
 	if from_id != 0 and from_id in subscribed:
 		capt = ''
 		if to_id != 0:
 			capt = 'для пользователя {}'.format(unames.get(to_id, 'Unknown user {}'.format(to_id)))
-		bot.sendMessage(from_id, text="У вас было отнято {0} {e} {1}".format(amount, capt, e=coinEmoji))
+		bot.sendMessage(from_id, text="У вас было отнято {0} {e} {1} в чате {2}".format(amount, capt, chat_title,
+			e=coinEmoji))
 		del capt
 
 	if to_id != 0 and to_id in subscribed:
 		capt = ''
 		if from_id != 0:
 			capt = 'пользователем {}'.format(unames.get(from_id, 'Unknown user {}'.format(from_id)))
-		bot.sendMessage(to_id, text="Вам было добавлено {0} {e} {1}".format(amount, capt, e=coinEmoji))
+		bot.sendMessage(to_id, text="Вам было добавлено {0} {e} {1} в чате {2}".format(amount, capt, chat_title,
+			e=coinEmoji))
 		
 	if botset.useLoggingChannel:
-		te = "{} -> {} ({})"
-		f = (from_id, to_id, amount)
+		te = "{}: {} -> {} ({})"
+		f = (chat_id, from_id, to_id, amount)
 		if txfrom != 0:
-			te = "{} by tx -> {}"
-			f = (txfrom, to_id)
-		elif bank:
-			te = "bank by {} -> {}"
-			f = (bankcapt, to_id)
-		elif tbank:
-			te = "{} -> bank by {}"
-			f = (from_id, bankcapt)
+			te = "{}: {} by tx -> {}"
+			f = (chat_id, txfrom, to_id)
+		elif from_id == 0:
+			te = "{}: bank by {} -> {} ({})"
+			f = (chat_id, bankcapt, to_id, amount)
+		elif to_id == 0:
+			te = "{}: {} -> bank by {} ({})"
+			f = (chat_id, from_id, bankcapt, amount)
 		bot.sendMessage(botset.loggingChannel, text=te.format(*f))
 
 def getuname(user):
@@ -165,6 +172,30 @@ def inprivate(chat_id, from_id):
 	
 def api_inprivate(bot, chat_id):
 	return (bot.getChat(chat_id).type == 'private')
+
+def randomstuff():
+	# usual:	[-5..7]
+	# rare:		[-10..17]
+	# v.rare:	[-13..30]
+	# special:	[-25..50]
+	u = randint(0, 2)
+	r = randint(0, 2)
+	v = randint(0, 2)
+	s = randint(0, 2)
+	
+	if u == 0:
+		if r == 0:
+			if v == 0:
+				if s == 0:
+					return randomstuff()
+				else:
+					return choice([-1, randint(31, 50)])
+			else:
+				return choice([-3, randint(18, 30)])
+		else:
+			return choice([-6, randint(8, 17)])
+	else:
+		return randint(-10, 7)
 
 def onStuff(bot, update):
 #	global msgcount, unames
@@ -190,7 +221,7 @@ def jobdaily(bot, job):
 			except IndexError:
 				break
 			carma[cid][usrid] = carma[cid].get(usrid, 0) + bonus
-			sendnotif(bot, 0, usrid, bonus, bank=True, bankcapt="daily gift")
+			sendnotif(bot, 0, usrid, bonus, cid, bankcapt="daily gift")
 			bonus = bonus // 2
 
 	for chat in msgcount:
@@ -325,7 +356,7 @@ def button(bot, update):
 			if payment(chat_id, qfrom, int(data[1]), int(data[2]), True):
 				bot.answerCallbackQuery(callback_query_id=inlmsgid,
 					text="Успешно переведено {} {e}".format(data[2], e=coinEmoji))
-				sendnotif(bot, qfrom, int(data[1]), int(data[2]))
+				sendnotif(bot, qfrom, int(data[1]), int(data[2]), chat_id)
 			else:
 				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Недостаточно {e}".format(e=coinEmoji))
 	else:
@@ -415,7 +446,7 @@ flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message
 			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 
 		payment(chat_id, fromid, toid, amount)
-		sendnotif(bot, fromid, toid, amount, bank=True, bankcapt="admin")
+		sendnotif(bot, fromid, toid, amount, chat_id, bankcapt="admin")
 
 def mystat(bot, update):
 	msg = update.message
@@ -557,7 +588,7 @@ def pay(bot, update, args):
 	else:
 		bot.sendMessage(chat_id, text="{} {e} переведено.".format(arg, e=coinEmoji),
 			reply_to_message_id=update.message.message_id)
-	sendnotif(bot, fromid, toid, arg)
+	sendnotif(bot, fromid, toid, arg, chat_id)
 		
 def thnx(bot, update):
 	chat_id = update.message.chat_id
@@ -572,7 +603,7 @@ def thnx(bot, update):
 	elif u.id == botid:
 		u.id = botset.creatorid
 	payment(chat_id, 0, u.id, 1)
-	sendnotif(bot, 0, u.id, 1, txfrom=update.message.from_user.id)
+	sendnotif(bot, 0, u.id, 1, chat_id, txfrom=update.message.from_user.id)
 #	bot.sendMessage(chat_id, text="Добавлено +1 {e} {0}".format(getuname(u), e=coinEmoji),
 #		reply_to_message_id=update.message.message_id)
 
@@ -609,7 +640,7 @@ def feat(bot, update, args):
 			bot.sendMessage(newchat, text="Сообщение от {u}:\n{m}".format(u=getuname(update.message.from_user),
 				m=txt))
 			bot.sendMessage(chat_id, text="Сообщение отправлено")
-			sendnotif(bot, from_id, 0, 5, tbank=True, bankcapt="ft_1")
+			sendnotif(bot, from_id, 0, 5, newchat, bankcapt="ft_1")
 		elif arg == 2:
 			None
 		elif arg == 3:
@@ -624,13 +655,45 @@ def feat(bot, update, args):
 					return
 				ftHolidaygot[chat_id].append(from_id)
 				payment(chat_id, 0, from_id, amount)
-				sendnotif(bot, 0, from_id, amount, bank=True, bankcapt="holiday")
+				sendnotif(bot, 0, from_id, amount, chat_id, bankcapt="holiday")
 			
 			bot.sendMessage(chat_id, text=capt, reply_to_message_id=update.message.message_id)
 		elif arg == 4:
 			None
 		elif arg == 777:
-			None
+			if inprivate(chat_id, from_id):
+				cid = targets.get(chat_id, 0)
+				if cid == 0:
+					bot.sendMessage(from_id, text="Вы не установили связь с чатом. /start для подробностей")
+					return
+			else:
+				cid = chat_id
+			
+			p = 5
+			if not from_id in ftTestluck[cid]:
+				p = 0
+				ftTestluck[cid].append(from_id)
+			
+			if not payment(cid, from_id, 0, p, True):
+				bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji),
+					reply_to_message_id=update.message.message_id)
+				return
+			if p != 0: 
+				sendnotif(bot, from_id, 0, p, cid, bankcapt="ft_777_payment")
+			
+			a = randomstuff()
+			if a < 0:
+				bot.sendMessage(chat_id, text="Видимо, сегодня тебе не везёт. У тебя было отнято {} {e}".format(-a,
+					e=coinEmoji), reply_to_message_id=update.message.message_id)
+				payment(cid, from_id, 0, a)
+				sendnotif(bot, from_id, 0, a, cid, bankcapt="ft_777")
+			else:
+				bot.sendMessage(chat_id,
+					text="Поздравляю, сегодня удача на твоей стороне! Тебе было добавлено {} {e}".format(a, e=coinEmoji),
+					reply_to_message_id=update.message.message_id)
+				payment(cid, 0, from_id, a)
+				sendnotif(bot, 0, from_id, a, cid, bankcapt="ft_777")
+			
 		else:
 			False
 
