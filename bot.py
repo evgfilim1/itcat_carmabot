@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
+
+#######################################
+# maded for @evgfilim1 by @metroyanno #
+#######################################
+
 from telegram import *
 from telegram.ext import *
 import botlibs.settings as botset
 from os import path
 from random import randint, choice
+from NucleusAsync import async_call
 import logging, time, math, pickle, datetime
 
 ddr = './botdata/'
@@ -16,6 +22,7 @@ botid = int(botset.TOKEN[:botset.TOKEN.index(':')])
 
 coinEmoji = botset.coin
 msgEmoji = botset.msg
+ticketEmoji = botset.ticket
 
 help_text = """Привет. Я бот, который считает catcoin'ы (обозначаются как {e}) в чате :)
 /st — узнать статистику пользователя
@@ -37,25 +44,22 @@ _____
 Ограничение всех трансферов: [0..1023]
 Инфо о боте —> /about
 Команды администрирования —> /admin
-Вскоре будут доступны некоторые плюшки с тратой catcoin'ов, а пока, зарабатывайте их!""".format(e=coinEmoji, m=msgEmoji)
+_____
+А ты знал, что половину меня сделал @metroyanno?""".format(e=coinEmoji, m=msgEmoji)
 
 hid_text = """Команды, не относящиеся непосредственно к боту:
 /uid — узнать UID и GID
-/whois — узнать, кто владелец определённого ID
-%%Место для вашей фичи, всего за 5 котомонет%%, обращаться к @evgfilim1
-"""
+/whois — узнать, кто владелец определённого ID"""
 
-about_text = """Я бот, который считает {e} в чате :)
-По всем вопросам, обращайся к моему создателю —> @evgfilim1
-Если вы хотите помочь написанию бота, вам сюда —> @itcat_carma""".format(e=coinEmoji)
+about_text = """Я бот, который считает {e} в чате :)""".format(e=coinEmoji)
 
 features_text = """Фичи за {e}:
 Название - Цена - Как получить
-Отправка сообщения во время бана - 5 - /feature 1
-Передать всем привет - 1 - /feature 2
-Получить подарок на праздник - (-10) - /feature 3
-Получить старт кит - 0 - /feature 4
-Испытать удачу - 0||5 - /feature 777
+Отправка сообщения во время бана - 5 - /ft 1
+Передать всем привет - 1 - /ft 2
+Получить подарок на праздник - (-10) - /ft 3
+Получить старт кит - 0 - /ft 4
+Испытать удачу - 5 - /ft 777
 """.format(e=coinEmoji)
 
 defaultUserCarma = 0
@@ -73,6 +77,8 @@ ftHolylist = {(30, 12): "С днём рождения IT-Koта!", (31, 12): "С
 ftStartkit = {}
 ftTestluck = {}
 ftHolidaygot = {}
+
+randSave = {}
 
 carma = {}
 msgcount = {}
@@ -97,17 +103,15 @@ def whatsnew_v3(bot, update):
 5) Теперь для обозначения сообщений в статистике используется эмодзи ({m})
 """.format(m=msgEmoji)
 
-	bot.sendMessage(update.message.chat_id, text=t)
-	
-def tempdef():
 	tm = ''
 	for chatid in carma:
-		tm += "{} ".format(chatid)
+		tm += str(chatid)
 		ftHolidaygot[chatid] = []
 		ftTestluck[chatid] = []
 		ftStartkit[chatid] = []
-	
+
 	logging.info(tm)
+	bot.sendMessage(update.message.chat_id, text=t)
 	
 def timediff():
 	t = botset.whenspin.split(':')
@@ -129,36 +133,32 @@ def payment(chat_id, from_id, to_id, amount, check=True):
 
 	return True
 
-def sendnotif(bot, from_id, to_id, amount, chat_id, *, txfrom=0, bankcapt=""):
-	chatinfo = bot.getChat(chat_id)
-	chat_title = chatinfo.title
+def sendnotif(bot, from_id, to_id, amount, *, txfrom=0, bank=False, tbank=False, bankcapt=""): #fix
 	if from_id != 0 and from_id in subscribed:
 		capt = ''
 		if to_id != 0:
 			capt = 'для пользователя {}'.format(unames.get(to_id, 'Unknown user {}'.format(to_id)))
-		bot.sendMessage(from_id, text="У вас было отнято {0} {e} {1} в чате {2}".format(amount, capt, chat_title,
-			e=coinEmoji))
+		bot.sendMessage(from_id, text="У вас было отнято {0} {e} {1}".format(amount, capt, e=coinEmoji))
 		del capt
 
 	if to_id != 0 and to_id in subscribed:
 		capt = ''
 		if from_id != 0:
 			capt = 'пользователем {}'.format(unames.get(from_id, 'Unknown user {}'.format(from_id)))
-		bot.sendMessage(to_id, text="Вам было добавлено {0} {e} {1} в чате {2}".format(amount, capt, chat_title,
-			e=coinEmoji))
+		bot.sendMessage(to_id, text="Вам было добавлено {0} {e} {1}".format(amount, capt, e=coinEmoji))
 		
 	if botset.useLoggingChannel:
-		te = "{}: {} -> {} ({})"
-		f = (chat_id, from_id, to_id, amount)
+		te = "{} -> {} ({})"
+		f = (from_id, to_id, amount)
 		if txfrom != 0:
-			te = "{}: {} by tx -> {}"
-			f = (chat_id, txfrom, to_id)
-		elif from_id == 0:
-			te = "{}: bank by {} -> {} ({})"
-			f = (chat_id, bankcapt, to_id, amount)
-		elif to_id == 0:
-			te = "{}: {} -> bank by {} ({})"
-			f = (chat_id, from_id, bankcapt, amount)
+			te = "{} by tx -> {}"
+			f = (txfrom, to_id)
+		elif bank:
+			te = "bank by {} -> {}"
+			f = (bankcapt, to_id)
+		elif tbank:
+			te = "{} -> bank by {}"
+			f = (from_id, bankcapt)
 		bot.sendMessage(botset.loggingChannel, text=te.format(*f))
 
 def getuname(user):
@@ -173,30 +173,6 @@ def inprivate(chat_id, from_id):
 def api_inprivate(bot, chat_id):
 	return (bot.getChat(chat_id).type == 'private')
 
-def randomstuff():
-	# usual:	[-5..7]
-	# rare:		[-10..17]
-	# v.rare:	[-13..30]
-	# special:	[-25..50]
-	u = randint(0, 2)
-	r = randint(0, 2)
-	v = randint(0, 2)
-	s = randint(0, 2)
-	
-	if u == 0:
-		if r == 0:
-			if v == 0:
-				if s == 0:
-					return randomstuff()
-				else:
-					return choice([-1, randint(31, 50)])
-			else:
-				return choice([-3, randint(18, 30)])
-		else:
-			return choice([-6, randint(8, 17)])
-	else:
-		return randint(-10, 7)
-
 def onStuff(bot, update):
 #	global msgcount, unames
 	uid = update.message.from_user.id
@@ -207,7 +183,6 @@ def onStuff(bot, update):
 	if not uid in carma[gid]:
 		carma[gid][uid] = defaultUserCarma
 	unames.update({uid: getuname(update.message.from_user)})
-
 
 def jobdaily(bot, job):
 #	global msgcount
@@ -221,7 +196,7 @@ def jobdaily(bot, job):
 			except IndexError:
 				break
 			carma[cid][usrid] = carma[cid].get(usrid, 0) + bonus
-			sendnotif(bot, 0, usrid, bonus, cid, bankcapt="daily gift")
+			sendnotif(bot, 0, usrid, bonus, bank=True, bankcapt="daily gift")
 			bonus = bonus // 2
 
 	for chat in msgcount:
@@ -244,6 +219,10 @@ def loaddata():
 			chatadmins = pickle.load(f)
 		with open(ddr + 'targets.pkl', 'rb') as f:
 			targets = pickle.load(f)
+		with open(ddr + 'giftbank.pkl', 'rb') as f:
+			giftbank = pickle.load(f)
+		with open(ddr + 'rand.pkl', 'rb') as f:
+			randSave = pickle.load(f)
 		logging.info("data loaded.")
 
 def jobhourly(bot, job):
@@ -259,6 +238,10 @@ def jobhourly(bot, job):
 		pickle.dump(chatadmins, f, pickle.HIGHEST_PROTOCOL)
 	with open(ddr + 'targets.pkl', 'wb') as f:
 		pickle.dump(targets, f, pickle.HIGHEST_PROTOCOL)
+	with open(ddr + 'giftbank.pkl', 'wb') as f:
+		pickle.dump(giftbank, f, pickle.HIGHEST_PROTOCOL)
+	with open(ddr + 'rand.pkl', 'wb') as f:
+		pickle.dump(randSave, f, pickle.HIGHEST_PROTOCOL)
 	logging.info("data saved.")
 
 def start(bot, update, args):
@@ -280,7 +263,7 @@ def start(bot, update, args):
 		if target:
 			ct = bot.getChat(target)
 			if ct.type == 'private':
-				bot.sendMessage(chat_id, text="Я не умею считать Catcoin'ы в ЛС.")
+				bot.sendMessage(chat_id, text="Я не умею считать {e} в ЛС.".format(e=coinEmoji))
 				return
 			targets.update({from_id: target})
 			bot.sendMessage(chat_id, text="'{}' установлен как чат по умолчанию".format(ct.title))
@@ -333,6 +316,17 @@ def hid(bot, update):
 		bot.sendMessage(update.message.chat_id, text="Невозможно отправить сообщение. Напиши в ЛС мне",
 			reply_to_message_id=update.message.message_id)
 
+def async_start(bot, query, name, data, randSave, coinEmoji, chat_id):
+	__import__("time").sleep(3000 / 1000)
+	templ = 'zero:{0}:{1}'
+	kbrd = [[InlineKeyboardButton("{e}{p}".format(p=coinEmoji, e=randSave.get(str(chat_id) + '_' + str(data) + '_1', 0)), callback_data=templ.format(data, '1'))],
+		[InlineKeyboardButton("{e}{p}".format(p=coinEmoji, e=randSave.get(str(chat_id) + '_' + str(data) + '_2', 0)), callback_data=templ.format(data, '2'))],
+		[InlineKeyboardButton("{e}{p}".format(p=coinEmoji, e=randSave.get(str(chat_id) + '_' + str(data) + '_3', 0)), callback_data=templ.format(data, '3'))]]
+	mrkup = InlineKeyboardMarkup(kbrd)
+	bot.editMessageText(chat_id=query.message.chat_id, message_id=query.message.message_id, reply_markup=mrkup, text="{e} выбрал билет.".format(e=name))
+	__import__("time").sleep(10000 / 1000)
+	bot.editMessageText(chat_id=query.message.chat_id, message_id=query.message.message_id, text="Игра закончена!")
+
 def button(bot, update):
 	query = update.callback_query
 	data = query.data.split(':')
@@ -356,9 +350,81 @@ def button(bot, update):
 			if payment(chat_id, qfrom, int(data[1]), int(data[2]), True):
 				bot.answerCallbackQuery(callback_query_id=inlmsgid,
 					text="Успешно переведено {} {e}".format(data[2], e=coinEmoji))
-				sendnotif(bot, qfrom, int(data[1]), int(data[2]), chat_id)
+				sendnotif(bot, qfrom, int(data[1]), int(data[2]))
 			else:
 				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Недостаточно {e}".format(e=coinEmoji))
+	elif data[0] == 'gift':
+		by_gift = giftbank.get(str(chat_id) + '_' + str(data[1]) + '_by',0)
+		if (giftbank.get(str(chat_id) + '_' + str(data[1]) + '_sum', 0) > 0) and (by_gift <= giftbank.get(str(chat_id) + '_' + str(data[1]) + '_sum', 0)):
+			if giftbank.get(str(chat_id) + '_' + str(data[1]) + '_' + str(qfrom), 0) == 'get':
+				bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Ты уже получал подарок с этой раздачи!")
+				return
+			giftbank[str(chat_id) + '_' + str(data[1]) + '_sum'] = giftbank.get(str(chat_id) + '_' + str(data[1]) + '_sum', 0) - by_gift
+			giftbank[str(chat_id) + '_' + str(data[1]) + '_' + str(qfrom)] = 'get'
+			payment(chat_id, 0, qfrom, by_gift, False)
+			sendnotif(bot, 0, qfrom, by_gift)
+			bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Ты получил подарок в {h}{e}!".format(e=coinEmoji, h=by_gift))
+			if giftbank.get(str(chat_id) + '_' + str(data[1]) + '_sum', 0) < by_gift:
+				payment(chat_id, 0, giftbank.get(str(chat_id) + '_' + str(data[1]) + '_back', 0), giftbank.get(str(chat_id) + '_' + str(data[1]) + '_sum', 0), False)
+				sendnotif(bot, 0, giftbank.get(str(chat_id) + '_' + str(data[1]) + '_back', 0), giftbank.get(str(chat_id) + '_' + str(data[1]) + '_sum', 0))
+				del giftbank[str(chat_id) + '_' + str(data[1]) + '_sum']
+				del giftbank[str(chat_id) + '_' + str(data[1]) + '_by']
+				del giftbank[str(chat_id) + '_' + str(data[1]) + '_id']
+				del giftbank[str(chat_id) + '_' + str(data[1]) + '_back']
+				bot.editMessageText(chat_id=query.message.chat_id, message_id=query.message.message_id, text="Раздача {e} закончилась".format(e=coinEmoji))
+				return
+			from_id = giftbank.get(str(chat_id) + '_' + str(data[1]) + '_id', 0)
+			templ = 'gift:{}'
+			kbrd = [[InlineKeyboardButton("Принять подарок!", callback_data=templ.format(data[1]))]]
+			mrkup = InlineKeyboardMarkup(kbrd)
+			bot.editMessageText(chat_id=query.message.chat_id, message_id=query.message.message_id, reply_markup=mrkup, text="{0} дарит по {1}{e}. Осталось: {2}{e}".format(str(from_id), by_gift, giftbank.get(str(chat_id) + '_' + str(data[1]) + '_sum', 0), e=coinEmoji))
+		else:
+			bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Выдача {e} закончена".format(e=coinEmoji))
+			return
+	elif data[0] == 'ticket':
+		if randSave.get(str(chat_id) + '_' + str(data[1]) + '_back', 0) == qfrom:
+			randSave[str(chat_id) + '_' + str(data[1]) + '_back'] = -1
+			name = randSave.get(str(chat_id) + '_' + str(data[1]) + '_name', 0)
+			del randSave[str(chat_id) + '_' + str(data[1]) + '_back']
+			templ = 'zero:{0}:{1}'
+			ins1 = ''
+			ins2 = ''
+			ins3 = ''
+			if str(data[2]) == '1':
+				ins1 = randSave.get(str(chat_id) + '_' + str(data[1]) + '_1', 0)
+				payment(chat_id, 0, qfrom, ins1, False)
+				kbrd = [[InlineKeyboardButton("{e}{p}".format(p=coinEmoji, e=ins1), callback_data=templ.format(data[1], '1'))],
+					[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(data[1], '2'))],
+					[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(data[1], '3'))]]
+				if int(ins1) > 0:
+					sendnotif(bot, 0, qfrom, ins1)
+			elif str(data[2]) == '2':
+				ins2 = randSave.get(str(chat_id) + '_' + str(data[1]) + '_2', 0)
+				payment(chat_id, 0, qfrom, ins2, False)
+				kbrd = [[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(data[1], '1'))],
+					[InlineKeyboardButton("{e}{p}".format(p=coinEmoji, e=ins2), callback_data=templ.format(data[1], '2'))],
+					[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(data[1], '3'))]]
+				if int(ins2) > 0:
+					sendnotif(bot, 0, qfrom, ins2)
+			elif str(data[2]) == '3':
+				ins3 = randSave.get(str(chat_id) + '_' + str(data[1]) + '_3', 0)
+				payment(chat_id, 0, qfrom, ins3, False)
+				kbrd = [[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(data[1], '1'))],
+					[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(data[1], '2'))],
+					[InlineKeyboardButton("{e}{p}".format(e=ins3, p=coinEmoji), callback_data=templ.format(data[1], '3'))]]
+				if int(ins3) > 0:
+					sendnotif(bot, 0, qfrom, ins3)
+			else:
+				return
+			mrkup = InlineKeyboardMarkup(kbrd)
+			bot.editMessageText(chat_id=query.message.chat_id, message_id=query.message.message_id, reply_markup=mrkup, text="{e} выбрал билет.".format(e=name))
+			async_call(async_start, args=(bot, query, name, data[1], randSave, coinEmoji, chat_id))
+		else:
+			bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Это не ты платил за билеты 5{e}!".format(e=coinEmoji))
+			return
+	elif data[0] == 'zero':
+		bot.answerCallbackQuery(callback_query_id=inlmsgid, text="Ты уже открыл билет!")
+		return
 	else:
 		return
 
@@ -446,7 +512,7 @@ flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message
 			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 
 		payment(chat_id, fromid, toid, amount)
-		sendnotif(bot, fromid, toid, amount, chat_id, bankcapt="admin")
+		sendnotif(bot, fromid, toid, amount, bank=True, bankcapt="admin")
 
 def mystat(bot, update):
 	msg = update.message
@@ -538,9 +604,12 @@ def ask(bot, update, args):
 		return
 	else:
 		toid = update.message.from_user.id
-		if arg < 0:
+		if arg < 1:
 			arg = -arg
 		arg = int(arg % transferLimit)
+
+	if arg < 1:
+		return
 
 	templ = 'asked:{}:{}'
 
@@ -565,7 +634,8 @@ def pay(bot, update, args):
 		arg = int(args[0])
 	except:
 		fail = True
-
+	if arg < 1:
+		return
 	if not bool(update.message.reply_to_message):
 		fail = True
 
@@ -575,7 +645,7 @@ def pay(bot, update, args):
 		return
 	else:
 		toid = update.message.reply_to_message.from_user.id
-		if arg < 0:
+		if arg < 1:
 			arg = -arg
 		arg = int(arg % transferLimit)
 	
@@ -588,8 +658,8 @@ def pay(bot, update, args):
 	else:
 		bot.sendMessage(chat_id, text="{} {e} переведено.".format(arg, e=coinEmoji),
 			reply_to_message_id=update.message.message_id)
-	sendnotif(bot, fromid, toid, arg, chat_id)
-		
+	sendnotif(bot, fromid, toid, arg)
+	
 def thnx(bot, update):
 	chat_id = update.message.chat_id
 	if not bool(update.message.reply_to_message):
@@ -603,7 +673,7 @@ def thnx(bot, update):
 	elif u.id == botid:
 		u.id = botset.creatorid
 	payment(chat_id, 0, u.id, 1)
-	sendnotif(bot, 0, u.id, 1, chat_id, txfrom=update.message.from_user.id)
+	sendnotif(bot, 0, u.id, 1, txfrom=update.message.from_user.id)
 #	bot.sendMessage(chat_id, text="Добавлено +1 {e} {0}".format(getuname(u), e=coinEmoji),
 #		reply_to_message_id=update.message.message_id)
 
@@ -619,30 +689,40 @@ def feat(bot, update, args):
 			arg = -1
 		
 		if arg == 1:
-			if not inprivate(chat_id, from_id):
-				#bot.sendMessage(chat_id, text="Здесь это делать бессмысленно", 
-				#	reply_to_message_id=update.message.message_id)
-				return
-			newchat = targets.get(from_id, 0)
-			if newchat == 0:
-				bot.sendMessage(chat_id, text="""Чат по умолчанию не установлен.
-Попроси кого-нибудь из чата выполнить команду "/start getlink" и переслать тебе.""")
-				return
-			args.pop(0)
-			if len(args) == 0:
-				bot.sendMessage(chat_id, text="Бессмысленно отправлять пустое сообщение.")
-				return
-			txt = ' '.join(args)
-			if not payment(newchat, from_id, 0, 5, True):
-				bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji),
-					reply_to_message_id=update.message.message_id)
-				return
-			bot.sendMessage(newchat, text="Сообщение от {u}:\n{m}".format(u=getuname(update.message.from_user),
-				m=txt))
-			bot.sendMessage(chat_id, text="Сообщение отправлено")
-			sendnotif(bot, from_id, 0, 5, newchat, bankcapt="ft_1")
+			if inprivate(chat_id, from_id):
+				chat_id_new = targets.get(chat_id, 0)
+				if chat_id_new == 0:
+					bot.sendMessage(msg.from_user.id, text="Вы не установили связь с чатом. /start для подробностей")
+					return
+				if not payment(chat_id_new, from_id, 0, 5, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					captstr = '(ничего не написал)'
+					if len(args) > 1:
+						captstr = ''
+						args.pop(0)
+						captstr += ' '.join(args)
+					bot.sendMessage(chat_id_new, text="{e}: {h}".format(e=getuname(update.message.from_user), h=captstr))
+					bot.sendMessage(chat_id, text="Сообщение отправлено", reply_to_message_id=update.message.message_id)
+					sendnotif(bot, from_id, 0, 5)
+			else:
+				bot.sendMessage(chat_id, text="Напиши мне в ЛС.", reply_to_message_id=update.message.message_id)
 		elif arg == 2:
-			None
+			if inprivate(chat_id, from_id):
+				chat_id_new = targets.get(chat_id, 0)
+				if chat_id_new == 0:
+					bot.sendMessage(msg.from_user.id, text="Вы не установили связь с чатом. /start для подробностей")
+				if not payment(chat_id_new, from_id, 0, 1, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					bot.sendMessage(chat_id_new, text="{e} передает всем привет!".format(e=getuname(update.message.from_user)))
+					sendnotif(bot, from_id, 0, 1)
+			else:
+				if not payment(chat_id, from_id, 0, 1, True):
+					bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+				else:
+					bot.sendMessage(chat_id, text="{e} передает всем привет!".format(e=getuname(update.message.from_user)))
+					sendnotif(bot, from_id, 0, 1)
 		elif arg == 3:
 			today = datetime.datetime.now()
 			nohd = "Сегодня нет праздника!"
@@ -655,45 +735,33 @@ def feat(bot, update, args):
 					return
 				ftHolidaygot[chat_id].append(from_id)
 				payment(chat_id, 0, from_id, amount)
-				sendnotif(bot, 0, from_id, amount, chat_id, bankcapt="holiday")
+				sendnotif(bot, 0, from_id, amount, bank=True, bankcapt="holiday")
 			
 			bot.sendMessage(chat_id, text=capt, reply_to_message_id=update.message.message_id)
 		elif arg == 4:
 			None
 		elif arg == 777:
+			chat_id_l = chat_id
 			if inprivate(chat_id, from_id):
-				cid = targets.get(chat_id, 0)
-				if cid == 0:
-					bot.sendMessage(from_id, text="Вы не установили связь с чатом. /start для подробностей")
-					return
-			else:
-				cid = chat_id
-			
-			p = 5
-			if not from_id in ftTestluck[cid]:
-				p = 0
-				ftTestluck[cid].append(from_id)
-			
-			if not payment(cid, from_id, 0, p, True):
-				bot.sendMessage(chat_id, text="Недостаточно {e}!".format(e=coinEmoji),
-					reply_to_message_id=update.message.message_id)
+				chat_id = targets.get(chat_id, 0)
+			if not payment(chat_id, from_id, 0, 5, True):
+				bot.sendMessage(chat_id_l, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
 				return
-			if p != 0: 
-				sendnotif(bot, from_id, 0, p, cid, bankcapt="ft_777_payment")
-			
-			a = randomstuff()
-			if a < 0:
-				bot.sendMessage(chat_id, text="Видимо, сегодня тебе не везёт. У тебя было отнято {} {e}".format(-a,
-					e=coinEmoji), reply_to_message_id=update.message.message_id)
-				payment(cid, from_id, 0, a)
-				sendnotif(bot, from_id, 0, a, cid, bankcapt="ft_777")
-			else:
-				bot.sendMessage(chat_id,
-					text="Поздравляю, сегодня удача на твоей стороне! Тебе было добавлено {} {e}".format(a, e=coinEmoji),
-					reply_to_message_id=update.message.message_id)
-				payment(cid, 0, from_id, a)
-				sendnotif(bot, 0, from_id, a, cid, bankcapt="ft_777")
-			
+			sendnotif(bot, from_id, 0, 5)
+			rand_gen1 = randint(0, 10)
+			rand_gen2 = randint(0, 10)
+			rand_gen3 = randint(0, 10)
+			templ = 'ticket:{0}:{1}'
+			kbrd = [[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(update.message.message_id, '1'))],
+				[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(update.message.message_id, '2'))],
+				[InlineKeyboardButton("{p}".format(p=ticketEmoji), callback_data=templ.format(update.message.message_id, '3'))]]
+			mrkup = InlineKeyboardMarkup(kbrd)
+			randSave[str(chat_id) + '_' + str(update.message.message_id) + '_back'] = from_id
+			randSave[str(chat_id) + '_' + str(update.message.message_id) + '_name'] = getuname(update.message.from_user)
+			randSave[str(chat_id) + '_' + str(update.message.message_id) + '_1'] = rand_gen1
+			randSave[str(chat_id) + '_' + str(update.message.message_id) + '_2'] = rand_gen2
+			randSave[str(chat_id) + '_' + str(update.message.message_id) + '_3'] = rand_gen3
+			bot.sendMessage(chat_id, text="{0} выбирает билет:".format(getuname(update.message.from_user)), reply_markup=mrkup)
 		else:
 			False
 
@@ -748,6 +816,50 @@ def whois(bot, update, args):
 	bot.sendMessage(update.message.chat_id, 
 		text="Whois {}: Username: {}, FirstName: {}, LastName: {}, ChatTitle: {}".format(who.id,
 		who.username, who.first_name, who.last_name, who.title), reply_to_message_id=update.message.message_id)
+
+def gifter(bot, update, args):
+	chat_id = update.message.chat_id
+	chat_id_last = update.message.chat_id
+	from_id = update.message.from_user.id
+	if inprivate(chat_id, from_id):
+		chat_id = targets.get(chat_id, 0)
+		if chat_id == 0:
+				bot.sendMessage(msg.from_user.id, text="Вы не установили связь с чатом. /start для подробностей")
+				return
+	if len(args) == 0:
+		bot.sendMessage(chat_id_last, text="Использование: /gf [сумма раздачи] [по сколько выдавать]".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+		return
+	else:
+		try:
+			arg = int(args[0])
+		except:
+			arg = -1
+	if arg == -1:
+		bot.sendMessage(chat_id_last, text="Использование: /gf [сумма раздачи] [по сколько выдавать]".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+		return
+	if arg < 1:
+		bot.sendMessage(chat_id_last, text="Неверная сумма {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+		return
+	if not payment(chat_id, from_id, 0, arg, True):
+		bot.sendMessage(chat_id_last, text="Недостаточно {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+	else:
+		try:
+			by = int(args[1])
+		except:
+			by = -1
+		if (by < 1) or (by > arg):
+			bot.sendMessage(chat_id_last, text="Неверная сумма {e}!".format(e=coinEmoji), reply_to_message_id=update.message.message_id)
+			return
+		giftbank[str(chat_id) + '_' + str(update.message.message_id) + '_sum'] = arg
+		giftbank[str(chat_id) + '_' + str(update.message.message_id) + '_by'] = by
+		giftbank[str(chat_id) + '_' + str(update.message.message_id) + '_back'] = from_id
+		giftbank[str(chat_id) + '_' + str(update.message.message_id) + '_id'] = getuname(update.message.from_user)
+		templ = 'gift:{}'
+		kbrd = [[InlineKeyboardButton("Принять подарок!", callback_data=templ.format(update.message.message_id))]]
+		mrkup = InlineKeyboardMarkup(kbrd)
+		bot.sendMessage(chat_id, text="{0} дарит по {1}{e}. Осталось: {2}{e}".format(getuname(update.message.from_user), by, 
+			arg, e=coinEmoji), reply_markup=mrkup)
+		sendnotif(bot, from_id, 0, arg)
 
 updater = Updater(botset.TOKEN)
 del botset.TOKEN
@@ -806,6 +918,9 @@ dp.add_handler(CommandHandler('unsubscr', unsubscr))
 dp.add_handler(CommandHandler('unsub', unsubscr))
 ##########
 dp.add_handler(CommandHandler('admin', adminpanel, pass_args=True))
+##########
+dp.add_handler(CommandHandler('gifter', gifter, pass_args=True))
+dp.add_handler(CommandHandler('gf', gifter, pass_args=True))
 ##########
 # There is empty :(
 ##########
