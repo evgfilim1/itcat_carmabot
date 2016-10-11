@@ -13,7 +13,11 @@ But don't forget to disable privacy mode
 Then do these steps to set up the bot:
 ```bash
 $ git clone https://github.com/evgfilim1/itcat_carmabot
-$ cd itcat_carmabot
+$ cd itcat_carmabot/botlibs
+$ git clone https://bitbucket.org/illemius/asynclib.git
+$ mv asynclib/NucleusAsync NucleusAsync
+$ rm -rf asynclib
+$ cd ..
 $ mkdir botdata
 $ cp botlibs/settings.example.py botlibs/settings.py
 $ nano botlibs/settings.py
@@ -26,3 +30,6 @@ Simply type in your shell:
 ```bash 
 $ python3 bot.py
 ```
+
+### Copyrights:
+[NucleusAsync](https://bitbucket.org/illemius/asynclib) library by [Illemius Team](https://bitbucket.org/illemius/)
