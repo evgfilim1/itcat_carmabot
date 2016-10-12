@@ -28,7 +28,7 @@ help_text = """Привет. Я бот, который считает catcoin'ы
 /gf или /gifter — устроить раздачу (made by @metroyanno)
 /pay — перевести {e}
 /ask — попросить {e}
-/tx или "++" — +1 {e} для другого человека
+/tx или "+" — +1 {e} для другого человека
 /sub или /subscr — подписаться на изменения {e} (сообщения приходят в ЛС)
 Для отписки — /unsub или /unsubscr
 
@@ -96,34 +96,13 @@ def error(bot, update, error):
 		reply_to_message_id=update.message.message_id)
 		
 def whatsnew_v3(bot, update):
-	t = """Выражаю благодарность:
-@metroyanno за помощь в разработке бота,
-@JRootJunior за предоставлении библиотеки асинхронности и сервера для хостинга бота
-_____
-Бот обновлён!
-Что будет нового в версии 3?
-1) Добавлены фичи за карму (наконец-то!)
-2) Убраны фичи "What time is it?"
-3) Теперь все ожидающие сообщения после запуска бота будут игнорированы
-4) Добавлен раздатчик (/gifter, by @metroyanno)
-5) Теперь для обозначения сообщений в статистике используется эмодзи ({m})
-6) Немного изменён формат уведомлений
-7) Исправлен баг с присоединением к чату
-8) Исправлена фича с ограничением трансферов и фича с /ask 0
-""".format(m=msgEmoji)
-
-	tm = ''
-	for chatid in carma:
-		tm += "{} ".format(chatid)
-		ftHolidaygot[chatid] = []
-		ftTestluck[chatid] = []
-		ftStartkit[chatid] = []
-		
-	for cuid in [61043901, 268675313]:
-		payment(update.message.chat_id, 0, cuid, 25)
-		sendnotif(bot, 0, cuid, 20, update.message.chat_id, bankcapt="for help")
-
-	logging.info(tm)
+	t = """Бот обновлён!
+Что нового в версии 3.1?
+1) Исправлены баги
+2) Изменён формат уведомлений при команде "+"
+3) Изменены команды Админа
+"""
+	
 	bot.sendMessage(update.message.chat_id, text=t)
 	
 def timediff():
@@ -159,10 +138,14 @@ def sendnotif(bot, from_id, to_id, amount, chat_id, *, txfrom=0, bankcapt=""):
 
 	if to_id != 0 and to_id in subscribed:
 		capt = ''
-		if from_id != 0:
-			capt = 'пользователем {}'.format(unames.get(from_id, 'Unknown user {}'.format(from_id)))
-		bot.sendMessage(to_id, text="Вам было добавлено {0} {e} {1} в чате {2}".format(amount, capt, chat_title,
-			e=coinEmoji))
+		if txfrom != 0:
+			bot.sendMessage(to_id, text="Вас поблагодарил(а) {1} в чате {0}".format(chat_title, 
+				unames.get(txfrom, "Unknown user {i}".format(i=txfrom))))
+		else:
+			if from_id != 0:
+				capt = 'пользователем {}'.format(unames.get(from_id, 'Unknown user {}'.format(from_id)))
+			bot.sendMessage(to_id, text="Вам было добавлено {0} {e} {1} в чате {2}".format(amount, capt, chat_title,
+				e=coinEmoji))
 		
 	if botset.useLoggingChannel:
 		te = "{}: {} -> {} ({})"
@@ -242,11 +225,18 @@ def jobdaily(bot, job):
 
 	for chat in msgcount:
 		msgcount[chat].clear()
+		
+	for chat in ftHolidaygot:
+		ftHolidaygot[chat].clear()
+		
+	for chat in ftTestluck:
+		ftTestluck[chat].clear()
 	
 	logging.info("jobdaily done")
 	
 def loaddata():
 	global msgcount, carma, unames, subscribed, chatadmins, targets
+	global giftbank, randSave, ftHolidaygot, ftTestluck, ftStartkit
 	if path.exists(ddr + 'msg.pkl'):
 		with open(ddr + 'msg.pkl', 'rb') as f:
 			msgcount = pickle.load(f)
@@ -499,7 +489,7 @@ def adminpanel(bot, update, args):
 
 	if len(args) == 0:
 		bot.sendMessage(chat_id, text="""Available commands:
-flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message_id=update.message.message_id)
+flush\nreload\nnewday\ngivecarma\nsetcarma\nmovecarma\ntakecarma""", reply_to_message_id=update.message.message_id)
 
 	else:
 		cmd = args[0]
@@ -512,7 +502,7 @@ flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message
 			loaddata()
 			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 			return
-		elif cmd == 'spin':
+		elif cmd == 'newday':
 			jobd.run(bot)
 			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 			return
@@ -522,27 +512,15 @@ flush\nreload\nspin\nreinit\ngivecarma\nsetcarma\ntakecarma""", reply_to_message
 		elif cmd == 'shell' and from_id == botset.creatorid:
 			eval(' '.join(args))
 			return
-		elif cmd == 'reinit':
-			if args[0] == 'all':
-				start(bot, update, ['clear'])
-			elif args[0] == 'carma':
-				carma[chat_id] = {}
-			elif args[0] == 'msgcount':
-				msgcount[chat_id] = {}
-			elif args[0] == 'unames':
-				unames = {}
-			elif args[0] == 'chatadmins':
-				chatadmins[chat_id] = []
-				admins = bot.getChatAdministrators(chat_id)
-				for admin in admins:
-					chatadmins[chat_id].append(admin.user.id)
-			elif args[0] == 'subscribed':
-				subscribed = []
-			else:
-				bot.sendMessage(chat_id, text="Usage: /admin reinit [all|carma|msgcount|unames|chatadmins|subscribed]",
-					reply_to_message_id=update.message.message_id)
-			bot.sendMessage(chat_id, text="{} done".format(cmd + args[0]), reply_to_message_id=update.message.message_id)
-			return
+		elif cmd == 'movecarma':
+			try:
+				fromid = int(args[0])
+				toid = int(args[1])
+				amount = int(args[2])
+			except:
+				bot.sendMessage(chat_id, text="Usage: /admin movecarma <from_id> <to_id> <amount>")
+				return
+			bot.sendMessage(chat_id, text="{} done".format(cmd), reply_to_message_id=update.message.message_id)
 		elif cmd == 'givecarma':
 			try:
 				toid = int(args[0])
@@ -871,7 +849,7 @@ def feat(bot, update, args):
 					text="Поздравляю, удача на твоей стороне! Тебе было добавлено {} {e}".format(a, e=coinEmoji),
 					reply_to_message_id=update.message.message_id)
 				payment(cid, 0, from_id, a)
-			sendnotif(bot, 0, from_id, a, cid, bankcapt="ft_7")
+				sendnotif(bot, 0, from_id, a, cid, bankcapt="ft_7")
 		
 		elif arg == 777:
 			chat_id_l = chat_id
