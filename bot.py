@@ -12,7 +12,7 @@ ddr = './botdata/'
 
 TIME_FORMAT = "%d %b, %H:%M:%S"
 logging.basicConfig(format = '%(levelname)-8s [%(asctime)s] %(message)s', level = logging.INFO,
-	datefmt = TIME_FORMAT)
+	filename = "{}bot.log".format(ddr), datefmt = TIME_FORMAT)
 
 botid = int(botset.TOKEN[:botset.TOKEN.index(':')])
 
