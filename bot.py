@@ -148,17 +148,17 @@ def sendnotif(bot, from_id, to_id, amount, chat_id, *, txfrom=0, bankcapt=""):
 				e=coinEmoji))
 		
 	if botset.useLoggingChannel:
-		te = "{}: {} -> {} ({})"
-		f = (chat_id, from_id, to_id, amount)
+		te = "{}{}{}({})"
+		f = ("Chat ID:" + str(chat_id) + "\n", "From ID:" + str(from_id), "To id" + str(to_id) + "\n", "Amount:" + str(amount))
 		if txfrom != 0:
-			te = "{}: {} by tx -> {}"
-			f = (chat_id, txfrom, to_id)
+			te = "{}{}{}\nVia tx"
+			f = ("Chat ID:" + str(chat_id), "From ID:" + str(txfrom), "To ID" + str(to_id))
 		elif from_id == 0:
-			te = "{}: bank by {} -> {} ({})"
-			f = (chat_id, bankcapt, to_id, amount)
+			te = "{}{}{}({})"
+			f = ("Chat ID:" + str(chat_id) + "\n", "Via " + str(bankcapt) + "\n", "To ID:" + str(to_id) + "\n", "Amount:" + str(amount))
 		elif to_id == 0:
-			te = "{}: {} -> bank by {} ({})"
-			f = (chat_id, from_id, bankcapt, amount)
+			te = "{}{}{}({})"
+			f = ("Chat_id:" + str(chat_id), "From ID:" + str(from_id), "Via " + str(bankcapt), "Amount:" + str(amount)) #str на всякий
 		bot.sendMessage(botset.loggingChannel, text=te.format(*f))
 
 def getuname(user):
