@@ -14,7 +14,7 @@ creatorid = 123456987
 # >>> __import__("datetime").datetime.now().time().isoformat()
 # it should show current system time in user-friendly variant, 
 # compare it with your current local time and set needed value
-whenspin = "21:00"
+whenspin = "07:00"
 
 # Change this value to use logging channel for your bot
 useLoggingChannel = False
