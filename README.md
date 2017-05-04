@@ -1,4 +1,7 @@
-# IT-Cat's carma bot by @evgfilim1
+# IT-Cat's carma bot by @evgfilim1 [DEPRECATED]
+
+_**WARNING:**_ This project is deprecated and no longer maintained.
+ If you want to use it, you have to maintain it by yourself
 
 ### Install guide:
 ```bash 
