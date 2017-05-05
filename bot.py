@@ -2,11 +2,18 @@
 
 from telegram import *
 from telegram.ext import *
+
 import botlibs.settings as botset
 from os import path
 from random import randint, choice
 from botlibs.NucleusAsync import async_call
 import logging, time, math, pickle, datetime
+import urllib.request
+import urllib.parse
+from sphinx.ext.intersphinx import read_inventory_v2
+from collections import namedtuple
+from bs4 import BeautifulSoup
+from fuzzywuzzy import fuzz
 
 ddr = './botdata/'
 
@@ -629,6 +636,109 @@ def mtopstat(bot, update):
 	except:
 		bot.sendMessage(update.message.chat_id, text="Невозможно отправить сообщение. Напиши в ЛС мне",
 			reply_to_message_id=update.message.message_id)
+			
+docs_url = "https://python-telegram-bot.readthedocs.io/en/latest/"
+docs_data = urllib.request.urlopen(docs_url + "objects.inv")
+docs_data.readline()  # Need to remove first line for some reason
+docs_inv = read_inventory_v2(docs_data, docs_url, urllib.parse.urljoin)
+
+Doc = namedtuple('Doc', 'short_name, full_name, type url tg_name tg_url')
+
+official_url = "https://core.telegram.org/bots/api#"
+official_soup = BeautifulSoup(
+    urllib.request.urlopen(official_url), "html.parser")
+official = {}
+for anchor in official_soup.select('a.anchor'):
+    if '-' not in anchor['href']:
+        official[anchor['href'][1:]] = anchor.next_sibling
+wiki_url = "https://github.com/python-telegram-bot/python-telegram-bot/wiki"
+wiki_soup = BeautifulSoup(urllib.request.urlopen(wiki_url), "html.parser")
+wiki_pages = {}
+for li in wiki_soup.select("ul.wiki-pages > li"):
+    if li.a['href'] != '#':
+        wiki_pages[li.strong.a.string] = "https://github.com" + li.strong.a['href']
+
+threshold = 80
+
+def get_docs(search):
+    #print("getting docs " + search)
+    search = list(reversed(search.split('.')))
+    best = (0, None)
+    for typ, items in docs_inv.items():
+        #print(typ)
+        if typ not in ['py:staticmethod', 'py:exception', 'py:method', 'py:module', 'py:class', 'py:attribute',
+                       'py:data', 'py:function']:
+            continue
+        for name, item in items.items():
+            #print("name")
+            name_bits = name.split('.')
+            dot_split = zip(search, reversed(name_bits))
+            score = 0
+            for s, n in dot_split:
+                score += fuzz.ratio(s, n)
+            score += fuzz.ratio(search, name)
+
+            # These values are basically random :/
+            if typ == 'py:module':
+                score *= 0.75
+            if typ == 'py:class':
+                score *= 1.10
+            if typ == 'py:attribute':
+                score *= 0.85
+
+            if score > best[0]:
+                tg_name = ''
+                tg_test = ''
+
+                if typ in ['py:class', 'py:method']:
+                    tg_test = name_bits[-1].replace('_', '').lower()
+                elif typ == 'py:attribute':
+                    tg_test = name_bits[-2].replace('_', '').lower()
+
+                if tg_test in official.keys():
+                    tg_name = official[tg_test]
+
+                tg_url = official_url + tg_test
+                short_name = name_bits[1:]
+
+                try:
+                    if name_bits[1].lower() == name_bits[2].lower():
+                        short_name = name_bits[2:]
+                except IndexError:
+                    pass
+                best = (score, Doc('.'.join(short_name), name,
+                                   typ[3:], item[2], tg_name, tg_url))
+    if best[0] > threshold:
+        return best[1]
+    else:
+        return None
+
+
+def reply_or_edit(update, chat_data, text):
+    if update.edited_message:
+        chat_data[update.edited_message.message_id].edit_text(text, parse_mode=ParseMode.MARKDOWN)
+    else:
+        chat_data[update.message.message_id] = update.message.reply_text(text,
+                                                                         parse_mode=ParseMode.MARKDOWN,
+                                                                         disable_web_page_preview=True)
+
+def docs(bot, update, args, chat_data):
+    """Documentation search"""
+    if len(args) > 0:
+        doc = get_docs(' '.join(args))
+        text = "default"
+        if doc:
+            text = "*{short_name}*\n_python-telegram-bot_ documentation for this {type}:\n[{full_name}]({url})"
+
+            if doc.tg_name:
+                text += "\n\nThe official documentation has more info about [{tg_name}]({tg_url})."
+
+            text = text.format(**doc._asdict())
+        else:
+            text = "Sorry, your search term didn't match anything, please edit your message to search again."
+
+        print(text)
+        reply_or_edit(update, chat_data, text)
 
 def ask(bot, update, args):
 	chat_id = update.message.chat_id
@@ -1044,6 +1154,8 @@ dp.add_handler(CommandHandler('gifter', gifter, pass_args=True))
 dp.add_handler(CommandHandler('gf', gifter, pass_args=True))
 ##########
 dp.add_handler(RegexHandler('^Коты ван лав!$', onelove))
+##########
+dp.add_handler(CommandHandler('docs', docs, pass_args=True, allow_edited=True, pass_chat_data=True))
 ##########
 dp.add_handler(CallbackQueryHandler(button))
 dp.add_handler(MessageHandler([Filters.status_update], statusupdate))
